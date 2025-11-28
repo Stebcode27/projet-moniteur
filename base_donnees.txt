@@ -1,0 +1,14 @@
+-----Beginning of transmission at the 28/11/2025 at 12:33:18----- HR: 0.17946938699254572 bpm SATURATION: 0.17946938699254572% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:33:51----- HR: 0.26130361067155367 bpm SATURATION: 0.26130361067155367% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:34:03----- HR: 0.027068892077902355 bpm SATURATION: 0.027068892077902355% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:34:08----- HR: -0.3000105604567947 bpm SATURATION: -0.3000105604567947% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:34:16----- HR: 0.01802636979651429 bpm SATURATION: 0.01802636979651429% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:34:19----- HR: -0.03840963843631953 bpm SATURATION: -0.03840963843631953% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:39:42----- HR: 0.12666507413636857 bpm SATURATION: 0.12666507413636857% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:39:46----- HR: 0.13407377572078083 bpm SATURATION: 0.13407377572078083% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:50:42----- HR: 0.015167239611944897 bpm SATURATION: 0.015167239611944897% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:50:53----- HR: 0.22818874408234213 bpm SATURATION: 0.22818874408234213% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 12:50:56----- HR: -0.4428162803458092 bpm SATURATION: -0.4428162803458092% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 13:03:36----- HR: 0.2334942678538265 bpm SATURATION: 0.2334942678538265% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 13:03:42----- HR: -0.07667981657255112 bpm SATURATION: -0.07667981657255112% -----End of transmission-----
+-----Beginning of transmission at the 28/11/2025 at 13:07:57----- HR: 0.2945522192123622 bpm SATURATION: 0.2945522192123622% -----End of transmission-----

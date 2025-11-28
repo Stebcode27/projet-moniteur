@@ -1,0 +1,24 @@
+{
+    "users": [
+        {
+            "nom": "teuga",
+            "mdp": "stebane"
+        },
+        {
+            "nom": "logbaba",
+            "mdp": "radiologue"
+        },
+        {
+            "nom": "test",
+            "mdp": "nouv"
+        },
+        {
+            "nom": "Utilisateur",
+            "mdp": "user"
+        },
+        {
+            "nom": "user",
+            "mdp": "essai"
+        }
+    ]
+}
