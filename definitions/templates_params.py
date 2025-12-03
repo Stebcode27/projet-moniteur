@@ -30,7 +30,6 @@ class Ecg(Param):
         super(Ecg, self).__init__("ecg")
         Param._set_maxpoint_(self, 250)
 
-
 class Saturation(Param):
 
     def __init__(self):
@@ -45,5 +44,5 @@ class Pression(Param):
     
 if __name__ == '__main__':
     ecg = Ecg()
-    ecg._set_data_(5*np.ones(10))
+    ecg._set_data_(5*np.ones(10, dtype='int16'))
     print(ecg._get_data_())

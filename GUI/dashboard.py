@@ -7,6 +7,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 from datetime import datetime
 from definitions.templates_params import Ecg
 from GUI.patient_infos import FenetrePatient
+from definitions.erreur_seuils import ParamError, ENUM_LIST_SEUILS
 
 class Dashboard(QMainWindow):
 
@@ -14,7 +15,10 @@ class Dashboard(QMainWindow):
         super().__init__()
         self.setWindowTitle("Moniteur")
         self.setGeometry(10, 10, 800, 400)
+        self.buildUI()
 
+    def buildUI(self):
+        """Fonction pour la construction du dashboard"""
         self.barre_etat = self.statusBar()
         self.hours = QLabel(datetime.now().strftime("%H:%M"), self)
         self.hours.setAlignment(Qt.AlignLeft)
@@ -24,6 +28,8 @@ class Dashboard(QMainWindow):
         self.barre_etat.setStyleSheet("color: white; font-size: 20px; padding: 10px; background: #0A0A0A;")
         self.name_patient = QLabel("Patient Name (Adult)", self)
         self.name_patient.setAlignment(Qt.AlignCenter)
+
+        self.app_infos_patient = FenetrePatient()
 
         self.barre_etat.addWidget(self.name_patient, stretch=2)
         self.barre_etat.addWidget(self.date, stretch=1)
@@ -39,13 +45,8 @@ class Dashboard(QMainWindow):
         self.ptr=0
         self.update_interval = 50
 
-        # action = QAction(QIcon('assets/save.png'), '&Enregistrer', self)
-        # action.setStatusTip('Enregistrer')
-        # action.triggered.connect(self.storage)
-
-        # self.tool_bar = QToolBar("Barre d'outils")
-        # self.addToolBar(self.tool_bar)
-        # self.tool_bar.addAction(action)
+        self.heart_on, self.heart_off = "heart_on.png", "heart_off.png"
+        self.state_heart = True
 
         self.layout_app = QVBoxLayout()
 
@@ -60,11 +61,9 @@ class Dashboard(QMainWindow):
         conteneur_saturation.setStyleSheet("background-color: black; border-radius: 20px;")
         conteneur_resp_temp = QWidget()
         conteneur_resp_temp.setStyleSheet("background-color: black; border-radius: 20px;")
-
-        pixmap = QPixmap('../assets/heart.png')
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.logo_label.setPixmap(pixmap)
+        self.logo_label.setPixmap(QPixmap(f'../assets/{self.heart_on}'))
         self.ecg_layout = QVBoxLayout(conteneur_ecg)
         self.ecg_layout.setContentsMargins(0, 0, 0, 0)
         self.ecg_layout.addWidget(self.logo_label)
@@ -115,16 +114,16 @@ class Dashboard(QMainWindow):
         sat_unite = QLabel("pulse")
         sat_lab.setAlignment(Qt.AlignLeft)
         sat_unite.setAlignment(Qt.AlignRight)
-        sat_lab.setStyleSheet("color: #FF500A;")
-        sat_unite.setStyleSheet("color: #FF500A")
+        sat_lab.setStyleSheet("color: #FF500A; font-size: 12pt;")
+        sat_unite.setStyleSheet("color: #FF500A; font-size: 12pt;")
         self.sat_label = QLabel("Saturation", self)
         percent_lab = QLabel("%")
-        percent_lab.setStyleSheet("color: #FF500A; font-weight: bold; font-size: 12pt;")
+        percent_lab.setStyleSheet("color: #FF500A; font-size: 12pt;")
         first_ligne = QHBoxLayout()
         first_ligne.setContentsMargins(0, 0, 0, 0)
-        first_ligne.addWidget(sat_lab,1)
+        first_ligne.addWidget(sat_lab, 1)
         first_ligne.addStretch(2)
-        first_ligne.addWidget(sat_unite,1)
+        first_ligne.addWidget(sat_unite, 1)
         sec_ligne = QHBoxLayout()
         sec_ligne.addStretch()
         sec_ligne.setContentsMargins(0, 0, 0, 0)
@@ -179,30 +178,59 @@ class Dashboard(QMainWindow):
         self.plot_widget = pg.PlotWidget()
         self.plot_widget.setBackground('k')
         self.plot_widget.showGrid(x=False, y=False)
-        self.plot_widget.setYRange(-1.5,1.5)
+        self.plot_widget.setYRange(-1.5, 1.5)
         plot_item = self.plot_widget.getPlotItem()
         plot_item.getAxis('left').setVisible(False)
         plot_item.getAxis('bottom').setVisible(False)
 
-        self.curve=self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=2), name="RESP")
-        self.curve1=self.plot_widget.plot(pen=pg.mkPen(color='g', width=2), name="ECG")
-        self.curve2=self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=2), name="SpO2")
+        self.curve = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=2), name="RESP")
+        self.curve1 = self.plot_widget.plot(pen=pg.mkPen(color='g', width=2), name="ECG")
+        self.curve2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=2), name="SpO2")
 
         self.layout1.addWidget(self.plot_widget, stretch=4)
 
         self.layout_app.addLayout(self.layout1, stretch=6)
 
+        self.centralWidget.setLayout(self.layout_app)
+
         self.timer = QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(self.update_interval)
-
-        self.centralWidget.setLayout(self.layout_app)
 
         self.timer_txt = QTimer()
         self.timer_txt.timeout.connect(self.update_txt)
         self.timer_txt.start(1000)
 
+        self.timer_heart = QTimer()
+        self.timer_heart.timeout.connect(self.update_logo)
+        self.timer_heart.start(250)
+
+        self.timer_infos = QTimer()
+        self.timer_infos.timeout.connect(self.get_infos_patient)
+        self.timer_infos.setSingleShot(True)
+        self.timer_infos.start(500)
+
         self.setStyleSheet("background-color: #1A1A1A; font-family: roboto;")
+
+    def get_infos_patient(self):
+        self.app_infos_patient.show()
+        if self.app_infos_patient.exec_() == QDialog.Accepted:
+            datas = self.app_infos_patient.get_data()
+            with open("../datas/patient_infos.txt", 'w+') as patient_file:
+                #patient_file.write("")
+                patient_file.write(datas['nom']);patient_file.write(" ");patient_file.write(datas['id']);patient_file.write(" ");patient_file.write(str(datas['age']));patient_file.write(" ");patient_file.write(datas['sexe']);patient_file.write(" ");patient_file.write(str(datas['poids']));patient_file.write(" ");patient_file.write(str(datas['taille']));patient_file.write(" ");salle = datas['salle'].split(' ');
+                try:
+                    patient_file.write(str(salle[0])+str(salle[1]));
+                except IndexError:
+                    print("Erreur de données concernant la salle du patient")
+                finally:
+                    patient_file.write("\n")
+
+            with open("../datas/patient_infos.txt", 'r+') as patient_file:
+                line = patient_file.readline()
+                datas = line.split(' ')
+                age = int(datas[2])
+                self.name_patient.setText(datas[0]+" (Adult)") if age>=18 else self.name_patient.setText(datas[0]+ " (Mineur)")
 
     def update_time(self):
         self.hours.setText(datetime.now().strftime("%H:%M"))
@@ -217,10 +245,18 @@ class Dashboard(QMainWindow):
         self.press_moy_value.setText(str(f"{abs(90*self.data_y[len(self.data_y)-1]):.2f}"))
         self.storage()
 
+    def update_logo(self):
+        if self.state_heart:
+            self.logo_label.setPixmap(QPixmap(f'../assets/{self.heart_off}'))
+            self.state_heart = False
+        else:
+            self.logo_label.setPixmap(QPixmap(f'../assets/{self.heart_on}'))
+            self.state_heart = True
+
     def update(self):
         data_esp = Ecg()
         if(data_esp._get_data_()[0]==0):
-            new_val = np.sin(self.ptr*0.2)*0.3+np.random.normal(size=1, scale=1, loc=0.5)*0.15
+            new_val = np.sin(self.ptr*0.2)*0.1+np.random.normal(size=1, scale=1, loc=0.5)*0.15
             self.data_y[:-1]=self.data_y[1:]
             try:        #possible erreur
                 self.data_y[-1]=new_val
@@ -233,14 +269,15 @@ class Dashboard(QMainWindow):
                 self.curve2.setData(x_data, self.data_y)
                 self.plot_widget.setXRange(self.ptr-self.max_points,self.ptr)
                 self.ptr+=1
+                #self.verify_value_out_of_range()
         else:
             return
 
     def storage(self):
         num_car = 5
-        file_name = "base_donnees.txt"
+        file_name = "../datas/base_donnees.txt"
         debut = datetime.now().strftime("the %d/%m/%Y at %H:%M:%S")
-        with open(file_name, "a+") as f:
+        with open(file_name, "w+") as f:
             for i in range(num_car):
                 f.write('-')
             f.write("Beginning of transmission at "+debut)
@@ -255,6 +292,29 @@ class Dashboard(QMainWindow):
                 f.write('-')
             f.write("\n")
         f.close()
+
+    def verify_value_out_of_range(self):
+        err_value_app = ParamError("sat", self)
+        value_sat = float(self.sat_label.text())
+        value_ecg = float(self.ecg_label.text())
+        value_temp = float(self.temp_label.text()[:len(self.temp_label.text()) - 2])
+        value_resp = float(self.resp_label.text())
+        value_pni = float(self.pni_label.text().split('\n')[0])
+        if value_ecg > ENUM_LIST_SEUILS[0]:
+            if self.app_infos_patient.exec_() == QDialog.Accepted:
+                err_value_app.show()
+        if value_sat > ENUM_LIST_SEUILS[1]:
+            if self.app_infos_patient.exec_() == QDialog.Accepted:
+                err_value_app.show()
+        if value_pni > ENUM_LIST_SEUILS[2]:
+            if self.app_infos_patient.exec_() == QDialog.Accepted:
+                err_value_app.show()
+        if value_temp > ENUM_LIST_SEUILS[3]:
+            if self.app_infos_patient.exec_() == QDialog.Accepted:
+                err_value_app.show()
+        if value_resp > ENUM_LIST_SEUILS[4]:
+            if self.app_infos_patient.exec_() == QDialog.Accepted:
+                err_value_app.show()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
