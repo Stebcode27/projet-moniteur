@@ -8,6 +8,7 @@ from datetime import datetime
 from definitions.templates_params import Ecg
 from GUI.patient_infos import FenetrePatient
 from definitions.erreur_seuils import ParamError, ENUM_LIST_SEUILS
+from utilities.preferences import COLOR_THEME
 
 class Dashboard(QMainWindow):
 
@@ -54,13 +55,13 @@ class Dashboard(QMainWindow):
 
         #conteneurs pour les paramètres
         conteneur_ecg = QWidget()
-        conteneur_ecg.setStyleSheet("background-color: black; border-radius: 20px;")
+        conteneur_ecg.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
         conteneur_pression = QWidget()
-        conteneur_pression.setStyleSheet("background-color: black; border-radius: 20px;")
+        conteneur_pression.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
         conteneur_saturation = QWidget()
-        conteneur_saturation.setStyleSheet("background-color: black; border-radius: 20px;")
+        conteneur_saturation.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
         conteneur_resp_temp = QWidget()
-        conteneur_resp_temp.setStyleSheet("background-color: black; border-radius: 20px;")
+        conteneur_resp_temp.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.logo_label.setPixmap(QPixmap(f'../assets/{self.heart_on}'))
@@ -98,7 +99,7 @@ class Dashboard(QMainWindow):
         p_l_hbox.addWidget(moy_lab, stretch=1)
         v_h_layout = QHBoxLayout()
         v_h_layout.addStretch(1)
-        self.pni_label = QLabel("Pression")
+        self.pni_label = QLabel("Pression (D/S)")
         self.pni_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
         self.pni_label.setStyleSheet("font-size: 35pt; color: white;")
         v_h_layout.addWidget(self.pni_label, stretch=2)
@@ -176,7 +177,7 @@ class Dashboard(QMainWindow):
         self.centralWidget = QWidget()
         self.setCentralWidget(self.centralWidget)
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setBackground('k')
+        self.plot_widget.setBackground(f'{COLOR_THEME['default']['container-color']}')
         self.plot_widget.showGrid(x=False, y=False)
         self.plot_widget.setYRange(-1.5, 1.5)
         plot_item = self.plot_widget.getPlotItem()
@@ -195,32 +196,32 @@ class Dashboard(QMainWindow):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update)
-        self.timer.start(self.update_interval)
 
         self.timer_txt = QTimer()
         self.timer_txt.timeout.connect(self.update_txt)
-        self.timer_txt.start(1000)
 
         self.timer_heart = QTimer()
         self.timer_heart.timeout.connect(self.update_logo)
-        self.timer_heart.start(250)
 
         self.timer_infos = QTimer()
         self.timer_infos.timeout.connect(self.get_infos_patient)
         self.timer_infos.setSingleShot(True)
         self.timer_infos.start(500)
 
-        self.setStyleSheet("background-color: #1A1A1A; font-family: roboto;")
+        self.setStyleSheet(f"background-color: {COLOR_THEME['default']['app-color']}; font-family: roboto;")
 
     def get_infos_patient(self):
         self.app_infos_patient.show()
         if self.app_infos_patient.exec_() == QDialog.Accepted:
+            self.timer.start(self.update_interval)
+            self.timer_txt.start(1000)
+            self.timer_heart.start(250)
             datas = self.app_infos_patient.get_data()
             with open("../datas/patient_infos.txt", 'w+') as patient_file:
                 #patient_file.write("")
                 patient_file.write(datas['nom']);patient_file.write(" ");patient_file.write(datas['id']);patient_file.write(" ");patient_file.write(str(datas['age']));patient_file.write(" ");patient_file.write(datas['sexe']);patient_file.write(" ");patient_file.write(str(datas['poids']));patient_file.write(" ");patient_file.write(str(datas['taille']));patient_file.write(" ");salle = datas['salle'].split(' ');
                 try:
-                    patient_file.write(str(salle[0])+str(salle[1]));
+                    patient_file.write(str(salle[0])+str(salle[1]))
                 except IndexError:
                     print("Erreur de données concernant la salle du patient")
                 finally:
@@ -237,12 +238,12 @@ class Dashboard(QMainWindow):
         self.date.setText(datetime.now().strftime("%d/%m/%Y"))
 
     def update_txt(self):
-        self.ecg_label.setText(str(f"{50*abs(self.data_y[len(self.data_y)-1]):.2f}"))
-        self.sat_label.setText(str(f"{abs(self.data_y[len(self.data_y)-1]):.2f}"))
-        self.pni_label.setText(str(f"{120*self.data_y[len(self.data_y)-1]:.2f}")+"\n"+str(f"{80*self.data_y[len(self.data_y)-1]/2:.2f}"))
-        self.temp_label.setText(str(f"{self.data_y[len(self.data_y)-1]:.2f}")+" °C")
-        self.resp_label.setText(str(f"{self.data_y[len(self.data_y)-1]:.2f}"))
-        self.press_moy_value.setText(str(f"{abs(90*self.data_y[len(self.data_y)-1]):.2f}"))
+        self.ecg_label.setText(str(f"{round(120*abs(self.data_y[len(self.data_y)-1]))}"))
+        self.sat_label.setText(str(f"{100*abs(self.data_y[len(self.data_y)-1]):.2f}"))
+        self.pni_label.setText(str(f"{round(200*abs(self.data_y[len(self.data_y)-1]))}")+"\n"+str(f"{round(180*abs(self.data_y[len(self.data_y)-1]/2))}"))
+        self.temp_label.setText(str(f"{100*abs(self.data_y[len(self.data_y)-1]):.2f}")+" °C")
+        self.resp_label.setText(str(f"{round(60*abs(self.data_y[len(self.data_y)-1]))}"))
+        self.press_moy_value.setText(str(f"{round(abs(90*self.data_y[len(self.data_y)-1]))}"))
         self.storage()
 
     def update_logo(self):
@@ -283,8 +284,12 @@ class Dashboard(QMainWindow):
             f.write("Beginning of transmission at "+debut)
             for i in range(num_car):
                 f.write('-')
-            f.write(" HR: "+str(self.data_y[len(self.data_y)-1])+" bpm ")
-            f.write("SATURATION: "+str(self.data_y[len(self.data_y)-1])+"% ")
+            f.write('<HR>')
+            f.write(str(self.data_y[len(self.data_y)-1]))
+            f.write('</HR>')
+            f.write('<SPO2>')
+            f.write(str(self.data_y[len(self.data_y)-1]))
+            f.write('</SPO2>')
             for i in range(num_car):
                 f.write('-')
             f.write("End of transmission")

@@ -1,1 +1,1 @@
------Beginning of transmission at the 03/12/2025 at 15:49:52----- HR: 0.012031380661262456 bpm SATURATION: 0.012031380661262456% -----End of transmission-----
+-----Beginning of transmission at the 06/12/2025 at 14:12:47-----<HR>-0.028500597690650678</HR><SPO2>-0.028500597690650678</SPO2>-----End of transmission-----
