@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QDialog, QGridLayout, QPushButton,
-                             QLineEdit, QVBoxLayout, QWidget)
+                             QLineEdit, QVBoxLayout, QWidget, QHBoxLayout)
 from PyQt5.QtCore import Qt, pyqtSignal
 
 
@@ -8,54 +8,77 @@ class ClavierVisuel(QDialog):
     # Signal pour envoyer le texte construit à la fenêtre parente
     text_changed = pyqtSignal(str)
 
-    def __init__(self, target_line_edit):
+    def __init__(self, target_line_edit=None):
         super().__init__()
         self.setWindowTitle("Clavier Visuel")
-        self.setWindowFlags(Qt.FramelessWindowHint)  # Optionnel: Sans barre de titre
+        #self.setWindowFlags(Qt.FramelessWindowHint)  # Optionnel: Sans barre de titre
 
         # Le champ de saisie que l'on est en train de remplir (dans la fenêtre fille)
         self.cible = target_line_edit
         self.buffer = self.cible.text()  # Buffer pour le texte en cours
+        self.state_casse = False
 
-        main_layout = QVBoxLayout()
+        self.main_layout = QVBoxLayout()
 
         # Affichage du texte en cours de saisie
         self.display = QLineEdit(self.buffer)
         self.display.setReadOnly(True)
-        main_layout.addWidget(self.display)
+        self.main_layout.addWidget(self.display)
 
         # Création des touches
         self.touches = self._creer_touches()
-        main_layout.addLayout(self.touches)
+        self.main_layout.addLayout(self.touches)
 
-        self.setLayout(main_layout)
+        lay = QHBoxLayout()
+
+        space = QPushButton('ESPACE')
+        space.setFixedSize(200, 40)
+        space.clicked.connect(lambda checked, t=' ': self.ajouter_caractere(t))
+        space.setFocusPolicy(Qt.StrongFocus)
+        pos = (4, 3)
+        lay.addWidget(space)
+
+        self.sup_button = QPushButton('SUPPR')
+        self.sup_button.setFixedSize(100,40)
+        self.sup_button.clicked.connect(self.supprimer_caractere)
+        self.sup_button.setFocusPolicy(Qt.StrongFocus)
+        lay.addWidget(self.sup_button)
+
+        self.ok = QPushButton('OK')
+        self.ok.setFixedSize(40, 40)
+        self.ok.clicked.connect(self.accepter_saisie)
+        self.ok.setFocusPolicy(Qt.StrongFocus)
+        lay.addWidget(self.ok)
+
+        self.main_layout.addLayout(lay)
+
+        self.setLayout(self.main_layout)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()  # Donne le focus à la fenêtre clavier
+        self.show()
 
     def _creer_touches(self):
         layout = QGridLayout()
         # Clavier simplifié (peut être étendu)
-        touches = [
-            '1', '2', '3', 'A', 'B', 'C',
-            '4', '5', '6', 'D', 'E', 'F',
-            '7', '8', '9', 'G', 'H', 'I',
-            '.', '0', '_', ' ', 'SUPPR', 'OK'
-        ]
+        touchs = "AZERTYUIOPQSDFGHJKLMWXCVBN."
+        tab_touch=[]
+        for i in touchs:
+            tab_touch.append(i.lower())
+        tab_touch.append('MAJ')
 
         self.btn_map = {}  # Pour retrouver les boutons
 
-        positions = [(i, j) for i in range(4) for j in range(6)]
+        positions = [(i, j) for i in range(3) for j in range(10)]
 
-        for position, nom_touche in zip(positions, touches):
-            bouton = QPushButton(nom_touche)
+        for position, nom_touche in zip(positions, tab_touch):
+            bouton = QPushButton()
+            bouton.setText(nom_touche)
             bouton.setFixedSize(60, 40)
 
             # ⚠️ La connexion au signal standard n'est pas utilisée pour la navigation
             # On utilise uniquement le signal de clic direct pour gérer la souris ou le focus.
-            if nom_touche == 'OK':
-                bouton.clicked.connect(self.accepter_saisie)
-            elif nom_touche == 'SUPPR':
-                bouton.clicked.connect(self.supprimer_caractere)
+            if nom_touche == 'MAJ':
+                bouton.clicked.connect(self.change_casse)
             else:
                 bouton.clicked.connect(lambda checked, t=nom_touche: self.ajouter_caractere(t))
 
@@ -65,6 +88,16 @@ class ClavierVisuel(QDialog):
             self.btn_map[nom_touche] = bouton
 
         return layout
+
+    def change_casse(self):
+        if not self.state_casse:
+            for button in self.btn_map.values():
+                button.setText(button.text().upper())
+            self.state_casse = True
+        else:
+            for button in self.btn_map.values():
+                button.setText(button.text().lower())
+            self.state_casse = False
 
     def ajouter_caractere(self, char):
         self.buffer += char
@@ -138,3 +171,9 @@ touches.
 
 
 # Ajoutez cette méthode à la classe ClavierVisuel
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    clavier = ClavierVisuel(QLineEdit())
+    clavier.show()
+    sys.exit(app.exec_())

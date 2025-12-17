@@ -1,4 +1,10 @@
 import sys
+import os
+
+# Obtenir le chemin absolu du dossier racine du projet (mon_projet/)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, PROJECT_ROOT)
+
 import pyqtgraph as pg
 import numpy as np
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction, QLabel, QToolBar, QVBoxLayout, QHBoxLayout, QGroupBox, QDialog, QPushButton)
@@ -14,42 +20,54 @@ class Dashboard(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.max_points = 100
+        self.data_y = np.zeros(self.max_points)
+        self.ptr=0
+        self.update_interval = 75
+        self.time_h = None
+        self.name_patient = None
+        self.date = None
+        self.barre_etat = None
+        self.timer_infos = None
+        self.state_heart = None
+        self.hours = None
+
+        self.heart_on, self.heart_off = "heart_on.png", "heart_off.png"
+        self.state_heart = True
+
+        self.layout_app = QVBoxLayout()
+
+        self.app_infos_patient = FenetrePatient()
+
+        self.error_modal_app = None
+
         self.setWindowTitle("Moniteur")
         self.setGeometry(10, 10, 800, 400)
         self.buildUI()
 
     def buildUI(self):
         """Fonction pour la construction du dashboard"""
+        self.setWindowFlags(Qt.FramelessWindowHint)
+
         self.barre_etat = self.statusBar()
-        self.hours = QLabel(datetime.now().strftime("%H:%M"), self)
-        self.hours.setAlignment(Qt.AlignLeft)
-        self.date = QLabel(datetime.now().strftime("%d/%m/%Y"), self)
-        self.date.setAlignment(Qt.AlignRight)
-        self.barre_etat.addWidget(self.hours,stretch=1)
-        self.barre_etat.setStyleSheet("color: white; font-size: 20px; padding: 10px; background: #0A0A0A;")
+        self.date = QLabel(datetime.now().strftime("%H:%M le %d/%m/%Y"), self)
+        self.date.setAlignment(Qt.AlignLeft)
+        self.barre_etat.setStyleSheet(f"color: white; font-size: 20px; padding: 10px; background: {COLOR_THEME['default']['container-color']}")
         self.name_patient = QLabel("Patient Name (Adult)", self)
         self.name_patient.setAlignment(Qt.AlignCenter)
+        self.settings = QLabel(self)
+        self.settings.setAlignment(Qt.AlignRight)
+        settings_icon_path = os.path.join(PROJECT_ROOT, 'assets', 'gear.png')
+        self.settings.setPixmap(QPixmap(settings_icon_path))
 
-        self.app_infos_patient = FenetrePatient()
-
-        self.barre_etat.addWidget(self.name_patient, stretch=2)
         self.barre_etat.addWidget(self.date, stretch=1)
+        self.barre_etat.addWidget(self.name_patient, stretch=2)
+        self.barre_etat.addWidget(self.settings, stretch=1)
         self.time_h = QTimer()
         self.time_h.timeout.connect(self.update_time)
         self.time_h.start(999)
 
-        self.colors = ["#D7EE0A", "#220CE7"]
-
-        self.max_points = 250
-
-        self.data_y = np.zeros(self.max_points)
-        self.ptr=0
-        self.update_interval = 50
-
-        self.heart_on, self.heart_off = "heart_on.png", "heart_off.png"
-        self.state_heart = True
-
-        self.layout_app = QVBoxLayout()
+        #self.colors = ["#D7EE0A", "#220CE7"]
 
         self.layout1 = QHBoxLayout()
 
@@ -64,13 +82,14 @@ class Dashboard(QMainWindow):
         conteneur_resp_temp.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.logo_label.setPixmap(QPixmap(f'../assets/{self.heart_on}'))
+        heart_on_path = os.path.join(PROJECT_ROOT, 'assets', self.heart_on)
+        self.logo_label.setPixmap(QPixmap(heart_on_path))
         self.ecg_layout = QVBoxLayout(conteneur_ecg)
         self.ecg_layout.setContentsMargins(0, 0, 0, 0)
         self.ecg_layout.addWidget(self.logo_label)
-        self.ecg_label = QLabel("ECG")
+        self.ecg_label = QLabel("--")
         self.ecg_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        self.ecg_label.setStyleSheet("font-size: 55pt; font-weight: bold; color: #33FF57; padding-bottom: 25px;")
+        self.ecg_label.setStyleSheet("font-size: 65pt; font-weight: bold; color: #33FF57; padding-bottom: 25px;")
         self.ecg_layout.addWidget(self.ecg_label)
         lay_unite_hr = QHBoxLayout(conteneur_ecg)
         unite_hr = QLabel("bpm")
@@ -84,9 +103,9 @@ class Dashboard(QMainWindow):
 
         self.pression_layout = QVBoxLayout(conteneur_pression)
         self.pression_layout.setContentsMargins(0, 0, 0, 0)
-        press_unite = QLabel("NIBP")
+        press_unite = QLabel("NIBP (Dias/Sys)")
         press_unite.setAlignment(Qt.AlignLeft)
-        self.press_moy_value = QLabel("moyenne")
+        self.press_moy_value = QLabel("__")
         self.press_moy_value.setStyleSheet("color: white; font-size: 25pt;")
         self.press_moy_value.setAlignment(Qt.AlignRight)
         moy_lab = QLabel("(Moy)")
@@ -99,7 +118,7 @@ class Dashboard(QMainWindow):
         p_l_hbox.addWidget(moy_lab, stretch=1)
         v_h_layout = QHBoxLayout()
         v_h_layout.addStretch(1)
-        self.pni_label = QLabel("Pression (D/S)")
+        self.pni_label = QLabel("--/--")
         self.pni_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
         self.pni_label.setStyleSheet("font-size: 35pt; color: white;")
         v_h_layout.addWidget(self.pni_label, stretch=2)
@@ -117,7 +136,8 @@ class Dashboard(QMainWindow):
         sat_unite.setAlignment(Qt.AlignRight)
         sat_lab.setStyleSheet("color: #FF500A; font-size: 12pt;")
         sat_unite.setStyleSheet("color: #FF500A; font-size: 12pt;")
-        self.sat_label = QLabel("Saturation", self)
+        self.sat_label = QLabel("__", self)
+        self.hr_in_sat = QLabel("HR")
         percent_lab = QLabel("%")
         percent_lab.setStyleSheet("color: #FF500A; font-size: 12pt;")
         first_ligne = QHBoxLayout()
@@ -132,23 +152,25 @@ class Dashboard(QMainWindow):
         sec_ligne.addWidget(percent_lab)
         sec_ligne.addStretch()
         self.sat_label.setAlignment(Qt.AlignRight)
-        self.sat_label.setStyleSheet("color: #FF500A; font-weight: bold; font-size: 55pt;")
+        self.hr_in_sat.setAlignment(Qt.AlignRight)
+        self.hr_in_sat.setStyleSheet('color: #33FF57; font-size: 15pt; font-weight: bold;')
+        self.sat_label.setStyleSheet("color: #FF500A; font-weight: bold; font-size: 50pt;")
         self.sat_layout.addLayout(first_ligne)
         self.sat_layout.addLayout(sec_ligne)
-        self.sat_layout.addWidget(QLabel(""))
+        self.sat_layout.addWidget(self.hr_in_sat)
 
-        self.temp_layout = QVBoxLayout(conteneur_resp_temp)
+        self.temp_layout = QHBoxLayout(conteneur_resp_temp)
         self.temp_layout.setContentsMargins(0, 0, 0, 0)
-        self.resp_label = QLabel("Respiration", self)
+        self.resp_label = QLabel("--", self)
         self.resp_label.setAlignment(Qt.AlignCenter)
         self.resp_label.setStyleSheet("color: #DFEE0A; font-size: 35pt;")
-        self.temp_label = QLabel("Temperature", self)
+        self.temp_label = QLabel("--", self)
         self.temp_label.setAlignment(Qt.AlignBottom)
         self.temp_label.setStyleSheet("color: #3020FF; font-size: 20pt; padding: 15px")
         resp_lay = QVBoxLayout()
-        temp_lay = QHBoxLayout()
+        temp_lay = QVBoxLayout()
         unit_t = QLabel("TEMP")
-        unit_t.setAlignment(Qt.AlignLeft)
+        unit_t.setAlignment(Qt.AlignRight)
         unit_t.setStyleSheet("color: #3020FF; font-size: 12pt;")
         temp_lay.addWidget(unit_t)
         temp_lay.addWidget(self.temp_label, alignment=Qt.AlignRight)
@@ -161,32 +183,34 @@ class Dashboard(QMainWindow):
         unit_1.setStyleSheet("color: #DFEE0A; font-size: 12pt;")
         unite_lay.addWidget(unit, alignment=Qt.AlignLeft)
         unite_lay.addWidget(unit_1, alignment=Qt.AlignRight)
-        resp_lay.addLayout(unite_lay)
-        resp_lay.addWidget(self.resp_label, alignment=Qt.AlignCenter)
+        resp_lay.addLayout(unite_lay, stretch=1)
+        resp_lay.addWidget(self.resp_label, alignment=Qt.AlignCenter, stretch=2)
+        resp_lay.addStretch(1)
         self.temp_layout.addLayout(resp_lay)
         self.temp_layout.addLayout(temp_lay)
 
         box_layout = QVBoxLayout()
         box_layout.addWidget(conteneur_ecg)
-        box_layout.addWidget(conteneur_pression)
         box_layout.addWidget(conteneur_saturation)
         box_layout.addWidget(conteneur_resp_temp)
+        box_layout.addWidget(conteneur_pression)
 
         self.layout1.addLayout(box_layout, stretch=2)
 
         self.centralWidget = QWidget()
         self.setCentralWidget(self.centralWidget)
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setBackground(f'{COLOR_THEME['default']['container-color']}')
+        bg_color = COLOR_THEME['default']['container-color']
+        self.plot_widget.setBackground(bg_color)
         self.plot_widget.showGrid(x=False, y=False)
         self.plot_widget.setYRange(-1.5, 1.5)
         plot_item = self.plot_widget.getPlotItem()
         plot_item.getAxis('left').setVisible(False)
         plot_item.getAxis('bottom').setVisible(False)
 
-        self.curve = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=2), name="RESP")
+        self.curve = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=3), name="RESP")
         self.curve1 = self.plot_widget.plot(pen=pg.mkPen(color='g', width=2), name="ECG")
-        self.curve2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=2), name="SpO2")
+        self.curve2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=4), name="SpO2")
 
         self.layout1.addWidget(self.plot_widget, stretch=4)
 
@@ -208,7 +232,7 @@ class Dashboard(QMainWindow):
         self.timer_infos.setSingleShot(True)
         self.timer_infos.start(500)
 
-        self.setStyleSheet(f"background-color: {COLOR_THEME['default']['app-color']}; font-family: roboto;")
+        self.setStyleSheet(f"background-color: {COLOR_THEME['default']['app-color']}; font-family: {COLOR_THEME['solar']['font-family']};")
 
     def get_infos_patient(self):
         self.app_infos_patient.show()
@@ -217,9 +241,10 @@ class Dashboard(QMainWindow):
             self.timer_txt.start(1000)
             self.timer_heart.start(250)
             datas = self.app_infos_patient.get_data()
-            with open("../datas/patient_infos.txt", 'w+') as patient_file:
+            patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
+            with open(patient_info_path, 'w+') as patient_file:
                 #patient_file.write("")
-                patient_file.write(datas['nom']);patient_file.write(" ");patient_file.write(datas['id']);patient_file.write(" ");patient_file.write(str(datas['age']));patient_file.write(" ");patient_file.write(datas['sexe']);patient_file.write(" ");patient_file.write(str(datas['poids']));patient_file.write(" ");patient_file.write(str(datas['taille']));patient_file.write(" ");salle = datas['salle'].split(' ');
+                patient_file.write(datas['nom']);patient_file.write("_");patient_file.write(datas['id']);patient_file.write("_");patient_file.write(str(datas['age']));patient_file.write("_");patient_file.write(datas['sexe']);patient_file.write("_");patient_file.write(str(datas['poids']));patient_file.write("_");patient_file.write(str(datas['taille']));patient_file.write("_");salle = datas['salle'].split(' ');
                 try:
                     patient_file.write(str(salle[0])+str(salle[1]))
                 except IndexError:
@@ -227,9 +252,10 @@ class Dashboard(QMainWindow):
                 finally:
                     patient_file.write("\n")
 
-            with open("../datas/patient_infos.txt", 'r+') as patient_file:
+            patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
+            with open(patient_info_path, 'r+') as patient_file:
                 line = patient_file.readline()
-                datas = line.split(' ')
+                datas = line.split('_')
                 age = int(datas[2])
                 self.name_patient.setText(datas[0]+" (Adult)") if age>=18 else self.name_patient.setText(datas[0]+ " (Mineur)")
 
@@ -244,39 +270,44 @@ class Dashboard(QMainWindow):
         self.temp_label.setText(str(f"{100*abs(self.data_y[len(self.data_y)-1]):.2f}")+" °C")
         self.resp_label.setText(str(f"{round(60*abs(self.data_y[len(self.data_y)-1]))}"))
         self.press_moy_value.setText(str(f"{round(abs(90*self.data_y[len(self.data_y)-1]))}"))
+        self.hr_in_sat.setText(str(f"{round(120*abs(self.data_y[len(self.data_y)-1]))}")+' bpm')
         self.storage()
 
     def update_logo(self):
         if self.state_heart:
-            self.logo_label.setPixmap(QPixmap(f'../assets/{self.heart_off}'))
+            heart_off_path = os.path.join(PROJECT_ROOT, 'assets', self.heart_off)
+            self.logo_label.setPixmap(QPixmap(heart_off_path))
             self.state_heart = False
         else:
-            self.logo_label.setPixmap(QPixmap(f'../assets/{self.heart_on}'))
+            heart_on_path = os.path.join(PROJECT_ROOT, 'assets', self.heart_on)
+            self.logo_label.setPixmap(QPixmap(heart_on_path))
             self.state_heart = True
 
     def update(self):
         data_esp = Ecg()
         if(data_esp._get_data_()[0]==0):
-            new_val = np.sin(self.ptr*0.2)*0.1+np.random.normal(size=1, scale=1, loc=0.5)*0.15
+            new_val = np.exp(-(self.ptr+1))+np.random.normal(size=1, scale=1, loc=0.5)*0.015
             self.data_y[:-1]=self.data_y[1:]
             try:        #possible erreur
                 self.data_y[-1]=new_val
             except DeprecationWarning as e:
                 pass
             finally:
+
                 x_data = np.arange(self.ptr-self.max_points,self.ptr)
-                self.curve.setData(x_data, self.data_y-1)
-                self.curve1.setData(x_data, self.data_y+1)
-                self.curve2.setData(x_data, self.data_y)
+                self.curve.setData(x_data, self.data_y-1.25)
+                self.curve1.setData(x_data, self.data_y+0.85)
+                self.curve2.setData(x_data, self.data_y-0.25)
                 self.plot_widget.setXRange(self.ptr-self.max_points,self.ptr)
-                self.ptr+=1
+                self.ptr+=5
+                self.ptr%=50
                 #self.verify_value_out_of_range()
         else:
             return
 
     def storage(self):
         num_car = 5
-        file_name = "../datas/base_donnees.txt"
+        file_name = os.path.join(PROJECT_ROOT, 'datas', 'base_donnees.txt')
         debut = datetime.now().strftime("the %d/%m/%Y at %H:%M:%S")
         with open(file_name, "w+") as f:
             for i in range(num_car):

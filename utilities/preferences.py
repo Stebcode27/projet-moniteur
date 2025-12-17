@@ -1,16 +1,16 @@
 """Definition des preferences concernant le moniteur allant de l'interface utilisateur aux autres paramètres"""
 
-#--------------------------GUI----------------------------#
+#--------------------------GUI_PREFERENCES----------------------------#
 COLOR_THEME = {
     'default': {
         'app-color': 'black',
         'container-color': '#1A1A1A',
-        'font-familly': 'Roboto',
+        'font-family': 'Roboto',
     },
     'solar': {
         'app-color': '#1A1A1A',
         'container-color': 'black',
-        'font-familly': 'Arial',
+        'font-family': 'Arial',
     }
 }
 

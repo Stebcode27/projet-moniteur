@@ -1,7 +1,8 @@
+"""Classe pour la fenetre d'entrée des informations du patient actuel"""
 import sys
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QDialog, QVBoxLayout, 
+from PyQt5.QtWidgets import (QApplication, QDialog, QVBoxLayout,
                              QFormLayout, QLineEdit, QSpinBox, QDoubleSpinBox, 
-                             QComboBox, QDialogButtonBox, QGroupBox, QLabel, QPushButton)
+                             QComboBox, QDialogButtonBox, QGroupBox)
 from PyQt5.QtCore import Qt
 from utilities.ecran import get_screen_dimensions
 from definitions.clavier_visuel import ClavierVisuel
@@ -83,7 +84,7 @@ class FenetrePatient(QDialog):
 
     def ouvrir_clavier(self, line_edit, event):
         if event.button() == Qt.LeftButton:
-            clavier = ClavierVisuel(line_edit.text())
+            clavier = ClavierVisuel(line_edit)
             pos = line_edit.mapToGlobal(line_edit.rect().bottomLeft())
             clavier.move(pos)
             clavier.exec_()

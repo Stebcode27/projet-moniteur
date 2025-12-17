@@ -1,1 +1,1 @@
------Beginning of transmission at the 06/12/2025 at 14:12:47-----<HR>-0.028500597690650678</HR><SPO2>-0.028500597690650678</SPO2>-----End of transmission-----
+-----Beginning of transmission at the 17/12/2025 at 01:54:31-----<HR>0.022099508194306745</HR><SPO2>0.022099508194306745</SPO2>-----End of transmission-----

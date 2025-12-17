@@ -1,1 +1,1 @@
-TEST  0 Masculin 0.0 0.0 
+__0_Masculin_0.0_0.0_
