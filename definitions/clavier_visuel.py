@@ -1,21 +1,31 @@
-import sys
 from PyQt5.QtWidgets import (QApplication, QDialog, QGridLayout, QPushButton,
                              QLineEdit, QVBoxLayout, QWidget, QHBoxLayout)
 from PyQt5.QtCore import Qt, pyqtSignal
+
+import sys
+import os
+
+# Obtenir le chemin absolu du dossier racine du projet (mon_projet/)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, PROJECT_ROOT)
 
 
 class ClavierVisuel(QDialog):
     # Signal pour envoyer le texte construit à la fenêtre parente
     text_changed = pyqtSignal(str)
 
-    def __init__(self, target_line_edit=None):
+    def __init__(self, target_line_edit=None, text_box=True):
         super().__init__()
         self.setWindowTitle("Clavier Visuel")
-        #self.setWindowFlags(Qt.FramelessWindowHint)  # Optionnel: Sans barre de titre
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)  # Optionnel: Sans barre de titre
 
         # Le champ de saisie que l'on est en train de remplir (dans la fenêtre fille)
         self.cible = target_line_edit
-        self.buffer = self.cible.text()  # Buffer pour le texte en cours
+        self.text_box = text_box
+        if self.text_box:
+            self.buffer = self.cible.text()  # Buffer pour le texte en cours
+        else:
+            self.buffer = self.cible.value()
         self.state_casse = False
 
         self.main_layout = QVBoxLayout()
@@ -35,7 +45,7 @@ class ClavierVisuel(QDialog):
         space.setFixedSize(200, 40)
         space.clicked.connect(lambda checked, t=' ': self.ajouter_caractere(t))
         space.setFocusPolicy(Qt.StrongFocus)
-        pos = (4, 3)
+        #pos = (4, 3)
         lay.addWidget(space)
 
         self.sup_button = QPushButton('SUPPR')
@@ -45,7 +55,7 @@ class ClavierVisuel(QDialog):
         lay.addWidget(self.sup_button)
 
         self.ok = QPushButton('OK')
-        self.ok.setFixedSize(40, 40)
+        self.ok.setFixedSize(80, 40)
         self.ok.clicked.connect(self.accepter_saisie)
         self.ok.setFocusPolicy(Qt.StrongFocus)
         lay.addWidget(self.ok)
@@ -55,12 +65,13 @@ class ClavierVisuel(QDialog):
         self.setLayout(self.main_layout)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()  # Donne le focus à la fenêtre clavier
-        self.show()
+
+        self.setStyleSheet("font-size: 12pt")
 
     def _creer_touches(self):
         layout = QGridLayout()
         # Clavier simplifié (peut être étendu)
-        touchs = "AZERTYUIOPQSDFGHJKLMWXCVBN."
+        touchs = "0123456789AZERTYUIOPQSDFGHJKLMWXCVBN.,"
         tab_touch=[]
         for i in touchs:
             tab_touch.append(i.lower())
@@ -68,7 +79,7 @@ class ClavierVisuel(QDialog):
 
         self.btn_map = {}  # Pour retrouver les boutons
 
-        positions = [(i, j) for i in range(3) for j in range(10)]
+        positions = [(i, j) for i in range(4) for j in range(10)]
 
         for position, nom_touche in zip(positions, tab_touch):
             bouton = QPushButton()
@@ -85,7 +96,8 @@ class ClavierVisuel(QDialog):
             # Important: Activer la navigation au clavier pour chaque bouton
             bouton.setFocusPolicy(Qt.StrongFocus)
             layout.addWidget(bouton, *position)
-            self.btn_map[nom_touche] = bouton
+            if nom_touche != "MAJ":
+                self.btn_map[nom_touche] = bouton
 
         return layout
 
@@ -100,7 +112,10 @@ class ClavierVisuel(QDialog):
             self.state_casse = False
 
     def ajouter_caractere(self, char):
-        self.buffer += char
+        if self.state_casse:
+            self.buffer += char.upper()
+        else:
+            self.buffer += char.lower()
         self.display.setText(self.buffer)
         self.text_changed.emit(self.buffer)  # Mise à jour temps réel (optionnel)
 
@@ -110,7 +125,11 @@ class ClavierVisuel(QDialog):
         self.text_changed.emit(self.buffer)
 
     def accepter_saisie(self):
-        self.cible.setText(self.buffer)
+        if self.text_box:
+            self.cible.setText(self.buffer)
+        else:
+            self.cible.setValue(self.buffer)
+        self.cible.clearFocus()
         self.accept()  # Ferme le dialogue avec succès
 
     def keyPressEvent(self, event):
@@ -141,36 +160,6 @@ class ClavierVisuel(QDialog):
             # Laisse les autres touches se comporter normalement (ou être ignorées)
             super().keyPressEvent(event)
 
-
-### B. Gestion de la Navigation (Clavier physique/bouton)
-"""
-Ceci
-est
-la
-partie
-cruciale
-pour
-la
-navigation
-"Gauche/Droite/Entrée/Tabulation".
-
-Nous
-allons
-surcharger
-la
-méthode
-`keyPressEvent`
-du
-dialogue
-pour
-intercepter
-les
-touches.
-
-```python"""
-
-
-# Ajoutez cette méthode à la classe ClavierVisuel
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

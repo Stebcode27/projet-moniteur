@@ -11,4 +11,7 @@ from GUI.dashboard import Dashboard
 from PyQt5.QtWidgets import QApplication
 
 if __name__=='__main__':
-    print(os.path.pardir+PROJECT_ROOT)
+    app = QApplication(sys.argv)
+    dashboard = Dashboard()
+    dashboard.showFullScreen()
+    sys.exit(app.exec_())

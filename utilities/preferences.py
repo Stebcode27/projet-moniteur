@@ -8,9 +8,14 @@ COLOR_THEME = {
         'font-family': 'Roboto',
     },
     'solar': {
-        'app-color': '#1A1A1A',
+        'app-color': "#1A1A1A",
         'container-color': 'black',
         'font-family': 'Arial',
+    },
+    'optimized': {
+        'app-color': "#012C2D",
+        'container-color': "#01021E",
+        'font-family': 'Calibri',
     }
 }
 

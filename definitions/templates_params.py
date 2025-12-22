@@ -26,9 +26,23 @@ class Param(object):
 
 class Ecg(Param):
     
-    def __init__(self):
+    def __init__(self, maxpoint):
         super(Ecg, self).__init__("ecg")
-        Param._set_maxpoint_(self, 250)
+        Param._set_maxpoint_(self, maxpoint=maxpoint)
+        self._set_data_(np.zeros(self.maxpoint))
+        self.ptr=0
+        self.update_interval = 100
+        self.x_data = np.arange(self.ptr-self.maxpoint,self.ptr)
+    
+    def update_data(self):
+        new_val = np.exp(-(self.ptr+1))+np.random.normal(size=1, scale=1, loc=0.5)*0.015
+        self._data_[:-1]=self._data_[1:]
+        self._data_[-1] = new_val
+
+        self.x_data = np.arange(self.ptr-self.maxpoint,self.ptr)
+
+        self.ptr+=1
+        self.ptr%=10
 
 class Saturation(Param):
 
@@ -41,8 +55,3 @@ class Pression(Param):
     def __init__(self):
         super(Pression, self).__init__("pression")
         
-    
-if __name__ == '__main__':
-    ecg = Ecg()
-    ecg._set_data_(5*np.ones(10, dtype='int16'))
-    print(ecg._get_data_())

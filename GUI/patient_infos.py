@@ -1,9 +1,14 @@
 """Classe pour la fenetre d'entrée des informations du patient actuel"""
-import sys
 from PyQt5.QtWidgets import (QApplication, QDialog, QVBoxLayout,
                              QFormLayout, QLineEdit, QSpinBox, QDoubleSpinBox, 
                              QComboBox, QDialogButtonBox, QGroupBox)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
+import sys
+import os
+
+# Obtenir le chemin absolu du dossier racine du projet (mon_projet/)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, PROJECT_ROOT)
 from utilities.ecran import get_screen_dimensions
 from definitions.clavier_visuel import ClavierVisuel
 
@@ -21,28 +26,37 @@ class FenetrePatient(QDialog):
         self.groupe_identite = QGroupBox("Identité")
         self.groupe_identite.setStyleSheet('padding: 15px;')
         form_identite = QFormLayout()
+        self.liste_champ = []
         
         self.champ_nom = QLineEdit()
         #
         self.champ_nom.setPlaceholderText("ex: DOE John")
         self.champ_nom.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
-        
+        self.liste_champ.append(self.champ_nom)
+        self.champ_nom.installEventFilter(self)
+
         self.champ_id = QLineEdit()
         self.champ_id.setPlaceholderText("ex: 123456")
         self.champ_id.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
-        
+        self.liste_champ.append(self.champ_id)
+        self.champ_id.installEventFilter(self)
+
         self.champ_age = QSpinBox()
         self.champ_age.setRange(0, 120)
         self.champ_age.setSuffix(" ans")
         self.champ_age.setStyleSheet("border-radius: 5px; border: 0.5px solid white;")
-        
+        #self.liste_champ.append(self.champ_age)
+
         self.champ_sexe = QComboBox()
         self.champ_sexe.addItems(["Masculin", "Féminin", "Autre"])
         self.champ_sexe.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
+        #self.liste_champ.append(self.champ_sexe)
 
         self.champ_salle = QLineEdit()
         self.champ_salle.setPlaceholderText("ex: Salle 2")
         self.champ_salle.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
+        self.liste_champ.append(self.champ_salle)
+        self.champ_salle.installEventFilter(self)
 
         form_identite.addRow("Nom complet :", self.champ_nom)
         form_identite.addRow("ID Patient :", self.champ_id)
@@ -60,17 +74,20 @@ class FenetrePatient(QDialog):
         
         self.champ_poids = QDoubleSpinBox()
         self.champ_poids.setRange(0, 300)
-        self.champ_poids.setSuffix(" kg")
+        self.champ_poids.setSingleStep(2)
         self.champ_poids.setStyleSheet("border-radius: 5px; border: 0.5px solid white;")
+        self.liste_champ.append(self.champ_poids)
+        self.champ_poids.installEventFilter(self)
         
         self.champ_taille = QDoubleSpinBox()
         self.champ_taille.setRange(0, 2.50)
         self.champ_taille.setSingleStep(0.1)
-        self.champ_taille.setSuffix(" m")
         self.champ_taille.setStyleSheet("border-radius: 5px; border: 0.5px solid white;")
+        self.liste_champ.append(self.champ_taille)
+        self.champ_taille.installEventFilter(self)
         
-        form_physique.addRow("Poids :", self.champ_poids)
-        form_physique.addRow("Taille :", self.champ_taille)
+        form_physique.addRow("Poids (en Kg):", self.champ_poids)
+        form_physique.addRow("Taille (en m):", self.champ_taille)
         
         self.groupe_physique.setLayout(form_physique)
         main_layout.addWidget(self.groupe_physique)
@@ -81,13 +98,21 @@ class FenetrePatient(QDialog):
         
         main_layout.addWidget(self.boutons, stretch=2)
         self.setLayout(main_layout)
+        self.setFocus()
+    
+    def eventFilter(self, a0, a1):
+        for i in range(len(self.liste_champ)):
+            if a0 is self.liste_champ[i]:
+                clavier = ClavierVisuel(a0)
+                if a1.type()==QEvent.FocusIn:
+                    pos = self.liste_champ[i].mapToGlobal(self.liste_champ[i].rect().bottomLeft())
+                    clavier.move(pos)
+                    clavier.exec_()
+                    self.setFocus()
+            
+            #elif a1.type()==QEvent.FocusOut:
 
-    def ouvrir_clavier(self, line_edit, event):
-        if event.button() == Qt.LeftButton:
-            clavier = ClavierVisuel(line_edit)
-            pos = line_edit.mapToGlobal(line_edit.rect().bottomLeft())
-            clavier.move(pos)
-            clavier.exec_()
+        return super().eventFilter(a0, a1)
 
     def buildScreen(self):
         screen_dims = get_screen_dimensions()

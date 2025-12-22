@@ -68,7 +68,7 @@ class ParamError(QDialog):
            'hr': '#33FF57',
            'sat': '#FF500A',
            'pni': '#fbfbfb',
-           'temp': '#3020FF',
+           'temp': "#2093FF",
            'resp': '#DFEE0A'
         }
         if self.param_name in dict_params:
@@ -107,6 +107,6 @@ class ParamError(QDialog):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    param = ParamError('pni')
+    param = ParamError('temp')
     param.show()
     sys.exit(app.exec_())
