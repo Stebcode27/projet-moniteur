@@ -13,6 +13,7 @@ sys.path.insert(0, PROJECT_ROOT)
 class ClavierVisuel(QDialog):
     # Signal pour envoyer le texte construit à la fenêtre parente
     text_changed = pyqtSignal(str)
+    validation_saisie = pyqtSignal()
 
     def __init__(self, target_line_edit=None, text_box=True):
         super().__init__()
@@ -67,6 +68,20 @@ class ClavierVisuel(QDialog):
         self.setFocus()  # Donne le focus à la fenêtre clavier
 
         self.setStyleSheet("font-size: 12pt")
+
+    def set_target(self, new_target):
+        self.cible = new_target
+        # Déterminer si c'est un champ texte ou numérique
+        self.text_box = isinstance(new_target, QLineEdit)
+        
+        # Mettre à jour le buffer avec la valeur actuelle du champ
+        if self.text_box:
+            self.buffer = self.cible.text()
+        else:
+            self.buffer = str(self.cible.value())
+            
+        # Mettre à jour l'affichage visuel du clavier
+        self.display.setText(self.buffer)
 
     def _creer_touches(self):
         layout = QGridLayout()
@@ -130,6 +145,7 @@ class ClavierVisuel(QDialog):
         else:
             self.cible.setValue(self.buffer)
         self.cible.clearFocus()
+        self.validation_saisie.emit()
         self.accept()  # Ferme le dialogue avec succès
 
     def keyPressEvent(self, event):

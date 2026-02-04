@@ -1,6 +1,15 @@
+
 """Definition des templates paramètres du moniteur multiparamétrique"""
+import sys
+import os
+
+# Obtenir le chemin absolu du dossier racine du projet (mon_projet/)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, PROJECT_ROOT)
 
 import numpy as np
+import serial
+from scipy.signal import butter, filtfilt
 
 #Template pour tous les paramètres du moniteur
 class Param(object):
@@ -37,12 +46,12 @@ class Ecg(Param):
     def update_data(self):
         new_val = np.exp(-(self.ptr+1))+np.random.normal(size=1, scale=1, loc=0.5)*0.015
         self._data_[:-1]=self._data_[1:]
-        self._data_[-1] = new_val
-
-        self.x_data = np.arange(self.ptr-self.maxpoint,self.ptr)
+        self._data_[-1] = new_val[0]
 
         self.ptr+=1
         self.ptr%=10
+        self.x_data = np.arange(self.ptr-self.maxpoint,self.ptr)
+
 
 class Saturation(Param):
 

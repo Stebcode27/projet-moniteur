@@ -36,7 +36,7 @@ class ConfigBox(QDialog):
             }
         """
         self.simul = False
-
+        self.theme_selected = None
         self.components()
 
     def buildUI(self):
@@ -74,11 +74,11 @@ class ConfigBox(QDialog):
         gauche_lay.addWidget(self.create_settings_row_with_widget('Taille de Police', self.slider))
         gauche_lay.addStretch()
         
-        theme = QComboBox()
+        self.theme = QComboBox()
         for th in COLOR_THEME.keys():
-            theme.addItem(th)
-        theme.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid black; font-size: 12pt")
-        droite_lay.addWidget(self.create_settings_row("Thème", widget=theme))
+            self.theme.addItem(th)
+        self.theme.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid black; font-size: 12pt")
+        droite_lay.addWidget(self.create_settings_row("Thème", widget=self.theme))
         droite_lay.addStretch()
 
 
@@ -104,6 +104,9 @@ class ConfigBox(QDialog):
             }
         """
         self.setStyleSheet(style)
+
+    def getThemeSelected(self):
+        return self.theme.currentText()
     
     def create_settings_row(self, title, subtitle=None, widget=None):
         frame = QFrame()

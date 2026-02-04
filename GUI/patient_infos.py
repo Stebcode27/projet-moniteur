@@ -20,25 +20,26 @@ class FenetrePatient(QDialog):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         #self.setAttribute(Qt.WA_TranslucentBackground)
 
+        self.clavier = None  # Initialisation du clavier visuel
+
         self.buildScreen()
         main_layout = QVBoxLayout()
         
         self.groupe_identite = QGroupBox("Identité")
         self.groupe_identite.setStyleSheet('padding: 15px;')
         form_identite = QFormLayout()
-        self.liste_champ = []
         
         self.champ_nom = QLineEdit()
         #
         self.champ_nom.setPlaceholderText("ex: DOE John")
         self.champ_nom.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
-        self.liste_champ.append(self.champ_nom)
+        
         self.champ_nom.installEventFilter(self)
 
         self.champ_id = QLineEdit()
         self.champ_id.setPlaceholderText("ex: 123456")
         self.champ_id.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
-        self.liste_champ.append(self.champ_id)
+        
         self.champ_id.installEventFilter(self)
 
         self.champ_age = QSpinBox()
@@ -55,7 +56,7 @@ class FenetrePatient(QDialog):
         self.champ_salle = QLineEdit()
         self.champ_salle.setPlaceholderText("ex: Salle 2")
         self.champ_salle.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
-        self.liste_champ.append(self.champ_salle)
+        
         self.champ_salle.installEventFilter(self)
 
         form_identite.addRow("Nom complet :", self.champ_nom)
@@ -76,14 +77,14 @@ class FenetrePatient(QDialog):
         self.champ_poids.setRange(0, 300)
         self.champ_poids.setSingleStep(2)
         self.champ_poids.setStyleSheet("border-radius: 5px; border: 0.5px solid white;")
-        self.liste_champ.append(self.champ_poids)
+        
         self.champ_poids.installEventFilter(self)
         
         self.champ_taille = QDoubleSpinBox()
         self.champ_taille.setRange(0, 2.50)
         self.champ_taille.setSingleStep(0.1)
         self.champ_taille.setStyleSheet("border-radius: 5px; border: 0.5px solid white;")
-        self.liste_champ.append(self.champ_taille)
+        
         self.champ_taille.installEventFilter(self)
         
         form_physique.addRow("Poids (en Kg):", self.champ_poids)
@@ -98,21 +99,20 @@ class FenetrePatient(QDialog):
         
         main_layout.addWidget(self.boutons, stretch=2)
         self.setLayout(main_layout)
-        self.setFocus()
+        #self.setFocus()
     
-    def eventFilter(self, a0, a1):
-        for i in range(len(self.liste_champ)):
-            if a0 is self.liste_champ[i]:
-                clavier = ClavierVisuel(a0)
-                if a1.type()==QEvent.FocusIn:
-                    pos = self.liste_champ[i].mapToGlobal(self.liste_champ[i].rect().bottomLeft())
-                    clavier.move(pos)
-                    clavier.exec_()
-                    self.setFocus()
-            
-            #elif a1.type()==QEvent.FocusOut:
+#
 
-        return super().eventFilter(a0, a1)
+    def valider_et_suivant(self):
+        """
+        Appelée quand le bouton 'OK' du clavier est pressé.
+        Le focus passe au widget suivant dans le formulaire.
+        """
+        # Optionnel : masquer le clavier entre deux saisies
+        # self.clavier.hide()
+        
+        # Déplace le focus au prochain widget (QLineEdit, SpinBox, ou Bouton)
+        self.focusNextChild()
 
     def buildScreen(self):
         screen_dims = get_screen_dimensions()

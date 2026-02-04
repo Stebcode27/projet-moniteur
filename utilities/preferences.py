@@ -2,20 +2,20 @@
 
 #--------------------------GUI_PREFERENCES----------------------------#
 COLOR_THEME = {
-    'default': {
+    'solar': {
         'app-color': 'black',
         'container-color': '#1A1A1A',
         'font-family': 'Roboto',
     },
-    'solar': {
+    'optimized': {
         'app-color': "#1A1A1A",
         'container-color': 'black',
         'font-family': 'Arial',
     },
-    'optimized': {
+    'default': {
         'app-color': "#012C2D",
         'container-color': "#01021E",
-        'font-family': 'Calibri',
+        'font-family': 'Roboto',
     }
 }
 

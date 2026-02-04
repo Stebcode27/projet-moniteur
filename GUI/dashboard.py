@@ -17,6 +17,8 @@ from definitions.erreur_seuils import ParamError, ENUM_LIST_SEUILS
 from utilities.preferences import COLOR_THEME
 from GUI.label_cliquable import LabelCliquable
 from GUI.configs import ConfigBox
+from GUI.log_widget import LogWidget
+from definitions.load_data import test_mit_wfdb
 
 class Dashboard(QMainWindow):
 
@@ -42,6 +44,8 @@ class Dashboard(QMainWindow):
         self.error_modal_app = None
         self.configbox = None
 
+        self.theme = COLOR_THEME['optimized']['container-color']
+
         self.setWindowTitle("Moniteur")
         self.setGeometry(10, 10, 800, 400)
         self.buildUI()
@@ -53,7 +57,7 @@ class Dashboard(QMainWindow):
         self.barre_etat = self.statusBar()
         self.date = QLabel(datetime.now().strftime("%H:%M le %d/%m/%Y"), self)
         self.date.setAlignment(Qt.AlignLeft)
-        self.barre_etat.setStyleSheet(f"color: white; font-size: 20px; padding: 10px; background: {COLOR_THEME['default']['container-color']}")
+        self.barre_etat.setStyleSheet(f"color: white; font-size: 25px; padding: 10px; background: {COLOR_THEME['optimized']['container-color']}")
         self.name_patient = QLabel("Patient Name (Adult)", self)
         self.name_patient.setAlignment(Qt.AlignCenter)
         self.settings = LabelCliquable()
@@ -73,13 +77,17 @@ class Dashboard(QMainWindow):
 
         #conteneurs pour les paramètres
         conteneur_ecg = QWidget()
-        conteneur_ecg.setStyleSheet(f"background-color: {COLOR_THEME['optimized']['container-color']}; border-radius: 20px;")
+        conteneur_ecg.setStyleSheet(f"background-color: {self.theme}; border-radius: 20px;")
         conteneur_pression = QWidget()
         conteneur_pression.setStyleSheet(f"background-color: {COLOR_THEME['optimized']['container-color']}; border-radius: 20px;")
         conteneur_saturation = QWidget()
         conteneur_saturation.setStyleSheet(f"background-color: {COLOR_THEME['optimized']['container-color']}; border-radius: 20px;")
         conteneur_resp_temp = QWidget()
         conteneur_resp_temp.setStyleSheet(f"background-color: {COLOR_THEME['optimized']['container-color']}; border-radius: 20px;")
+        conteneur_history = QWidget()
+        conteneur_history.setStyleSheet(f"background-color: {COLOR_THEME['optimized']['container-color']}; border-radius: 20px;")
+        history_layout = QVBoxLayout(conteneur_history)
+
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         heart_on_path = os.path.join(PROJECT_ROOT, 'assets', self.heart_on)
@@ -89,13 +97,13 @@ class Dashboard(QMainWindow):
         self.ecg_layout.addWidget(self.logo_label)
         self.ecg_label = QLabel("--")
         self.ecg_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        self.ecg_label.setStyleSheet("font-size: 65pt; font-weight: bold; color: #33FF57; padding-bottom: 25px;")
+        self.ecg_label.setStyleSheet("font-size: 70pt; font-weight: bold; color: #33FF57; padding-bottom: 25px;")
         self.ecg_layout.addWidget(self.ecg_label)
         lay_unite_hr = QHBoxLayout()
         unite_hr = QLabel("bpm")
         hr = QLabel("HR")
-        hr.setStyleSheet("color: #33FF57; font-size: 15pt;")
-        unite_hr.setStyleSheet("color: #33FF57; font-size: 15pt;")
+        hr.setStyleSheet("color: #33FF57; font-size: 16pt;")
+        unite_hr.setStyleSheet("color: #33FF57; font-size: 16pt;")
         lay_unite_hr.addStretch(1)
         lay_unite_hr.addWidget(unite_hr, stretch=1, alignment=Qt.AlignCenter)
         lay_unite_hr.addWidget(hr, stretch=1, alignment=Qt.AlignRight)
@@ -106,12 +114,12 @@ class Dashboard(QMainWindow):
         press_unite = QLabel("NIBP (Dias/Sys)")
         press_unite.setAlignment(Qt.AlignLeft)
         self.press_moy_value = QLabel("__")
-        self.press_moy_value.setStyleSheet("color: white; font-size: 25pt;")
+        self.press_moy_value.setStyleSheet("color: white; font-size: 28pt;")
         self.press_moy_value.setAlignment(Qt.AlignRight)
         moy_lab = QLabel("(Moy)")
         moy_lab.setAlignment(Qt.AlignRight)
-        moy_lab.setStyleSheet("color: white; font-size: 12pt;")
-        press_unite.setStyleSheet("color: white; font-size: 12pt;")
+        moy_lab.setStyleSheet("color: white; font-size: 13pt;")
+        press_unite.setStyleSheet("color: white; font-size: 13pt;")
         p_l_hbox = QHBoxLayout()
         p_l_hbox.addWidget(press_unite, stretch=2)
         p_l_hbox.addStretch()
@@ -120,7 +128,7 @@ class Dashboard(QMainWindow):
         v_h_layout.addStretch(1)
         self.pni_label = QLabel("--/--")
         self.pni_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        self.pni_label.setStyleSheet("font-size: 35pt; color: white;")
+        self.pni_label.setStyleSheet("font-size: 40pt; color: white;")
         v_h_layout.addWidget(self.pni_label, stretch=2)
         v_h_layout.addStretch()
         v_h_layout.addWidget(self.press_moy_value, stretch=1)
@@ -134,12 +142,12 @@ class Dashboard(QMainWindow):
         sat_unite = QLabel("pulse")
         sat_lab.setAlignment(Qt.AlignLeft)
         sat_unite.setAlignment(Qt.AlignRight)
-        sat_lab.setStyleSheet("color: #FF500A; font-size: 12pt;")
-        sat_unite.setStyleSheet("color: #FF500A; font-size: 12pt;")
+        sat_lab.setStyleSheet("color: #FF500A; font-size: 13pt;")
+        sat_unite.setStyleSheet("color: #FF500A; font-size: 13pt;")
         self.sat_label = QLabel("__", self)
         self.hr_in_sat = QLabel("HR")
         percent_lab = QLabel("%")
-        percent_lab.setStyleSheet("color: #FF500A; font-size: 12pt;")
+        percent_lab.setStyleSheet("color: #FF500A; font-size: 13pt;")
         first_ligne = QHBoxLayout()
         first_ligne.setContentsMargins(0, 0, 0, 0)
         first_ligne.addWidget(sat_lab, 1)
@@ -153,8 +161,8 @@ class Dashboard(QMainWindow):
         sec_ligne.addStretch()
         self.sat_label.setAlignment(Qt.AlignRight)
         self.hr_in_sat.setAlignment(Qt.AlignBottom)
-        self.hr_in_sat.setStyleSheet('color: #33FF57; font-size: 15pt; font-weight: bold;')
-        self.sat_label.setStyleSheet("color: #FF500A; font-weight: bold; font-size: 50pt;")
+        self.hr_in_sat.setStyleSheet('color: #33FF57; font-size: 16pt; font-weight: bold;')
+        self.sat_label.setStyleSheet("color: #FF500A; font-weight: bold; font-size: 55pt;")
         self.sat_layout.addLayout(first_ligne)
         self.sat_layout.addLayout(sec_ligne)
         self.sat_layout.addWidget(self.hr_in_sat, alignment=Qt.AlignRight)
@@ -163,15 +171,15 @@ class Dashboard(QMainWindow):
         self.temp_layout.setContentsMargins(0, 0, 0, 0)
         self.resp_label = QLabel("--", self)
         self.resp_label.setAlignment(Qt.AlignCenter)
-        self.resp_label.setStyleSheet("color: #DFEE0A; font-size: 35pt;")
+        self.resp_label.setStyleSheet("color: #DFEE0A; font-size: 40pt;")
         self.temp_label = QLabel("--", self)
         self.temp_label.setAlignment(Qt.AlignBottom)
-        self.temp_label.setStyleSheet("color: #2093FF; font-size: 20pt; padding: 15px")
+        self.temp_label.setStyleSheet("color: #2093FF; font-size: 22pt; padding: 15px")
         resp_lay = QVBoxLayout()
         temp_lay = QVBoxLayout()
         unit_t = QLabel("TEMP")
         unit_t.setAlignment(Qt.AlignRight)
-        unit_t.setStyleSheet("color: #2093FF; font-size: 12pt;")
+        unit_t.setStyleSheet("color: #2093FF; font-size: 13pt;")
         temp_lay.addWidget(unit_t)
         temp_lay.addWidget(self.temp_label, alignment=Qt.AlignRight)
         unite_lay = QHBoxLayout()
@@ -179,8 +187,8 @@ class Dashboard(QMainWindow):
         unit_1 = QLabel("resp/min")
         unit.setAlignment(Qt.AlignLeft)
         unit_1.setAlignment(Qt.AlignRight)
-        unit.setStyleSheet("color: #DFEE0A; font-size: 12pt;")
-        unit_1.setStyleSheet("color: #DFEE0A; font-size: 12pt;")
+        unit.setStyleSheet("color: #DFEE0A; font-size: 13pt;")
+        unit_1.setStyleSheet("color: #DFEE0A; font-size: 13pt;")
         unite_lay.addWidget(unit, alignment=Qt.AlignLeft)
         unite_lay.addWidget(unit_1, alignment=Qt.AlignRight)
         resp_lay.addLayout(unite_lay)
@@ -189,10 +197,13 @@ class Dashboard(QMainWindow):
         self.temp_layout.addLayout(temp_lay)
 
         box_layout = QVBoxLayout()
-        box_layout.addWidget(conteneur_ecg)
-        box_layout.addWidget(conteneur_saturation)
-        box_layout.addWidget(conteneur_resp_temp)
-        box_layout.addWidget(conteneur_pression)
+        box_layout.addWidget(conteneur_ecg, stretch=3)
+        box_layout.addWidget(conteneur_saturation, stretch=3)
+        box_layout.addWidget(conteneur_resp_temp, stretch=2)
+        #box_layout.addWidget(conteneur_pression)
+
+        self.log_widget = LogWidget()
+        history_layout.addWidget(self.log_widget)
 
         self.layout1.addLayout(box_layout, stretch=2)
 
@@ -212,7 +223,16 @@ class Dashboard(QMainWindow):
         self.curve1 = self.plot_widget.plot(pen=pg.mkPen(color='g', width=3), name="ECG")
         self.curve2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=3), name="SpO2")
 
-        self.layout1.addWidget(self.plot_widget, stretch=4)
+        right_layout = QVBoxLayout()
+        right_layout.addWidget(self.plot_widget, stretch=4)
+
+        bottom_right_layout = QHBoxLayout()
+        bottom_right_layout.addWidget(conteneur_pression, stretch=2)
+        bottom_right_layout.addWidget(conteneur_history, stretch=2)
+
+        right_layout.addLayout(bottom_right_layout, stretch=2)
+
+        self.layout1.addLayout(right_layout, stretch=4)
 
         self.layout_app.addLayout(self.layout1, stretch=6)
 
@@ -264,6 +284,8 @@ class Dashboard(QMainWindow):
             if not self.hasFocus():
                 self.simul_state = self.configbox.get_state()
                 self.timer.start(self.ecg.update_interval)
+                self.theme = COLOR_THEME[self.configbox.getThemeSelected()]['container-color']
+                print(self.theme)
 
     def update_time(self):
         self.date.setText(datetime.now().strftime("%H:%M le %d/%m/%Y"))
@@ -271,12 +293,13 @@ class Dashboard(QMainWindow):
     def update_txt(self):
         self.ecg_label.setText(str(f"{round(120*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]))}"))
         self.sat_label.setText(str(f"{100*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]):.2f}"))
-        self.pni_label.setText(str(f"{round(200*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]))}")+"\n"+str(f"{round(180*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]/2))}"))
+        self.pni_label.setText(str(f"{round(200*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]))}")+"/"+str(f"{round(180*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]/2))}"))
         self.temp_label.setText(str(f"{100*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]):.2f}")+" °C")
         self.resp_label.setText(str(f"{round(60*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]))}"))
         self.press_moy_value.setText(str(f"{round(abs(90*self.ecg._get_data_()[len(self.ecg._get_data_())-1]))}"))
         self.hr_in_sat.setText(str(f"{round(120*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]))}")+' bpm')
         self.storage()
+        self.log_widget.ajouter_valeur()
 
     def update_logo(self):
         if self.state_heart:
@@ -291,10 +314,12 @@ class Dashboard(QMainWindow):
 
     def update(self):
         if self.simul_state:
+            datas, points = test_mit_wfdb()
+            abs = [r for r in range(points)]
             self.ecg.update_data()
-            self.curve.setData(self.ecg.x_data, self.ecg._get_data_() - 1.25)
-            self.curve1.setData(self.ecg.x_data, self.ecg._get_data_() + 0.85)
-            self.curve2.setData(self.ecg.x_data, self.ecg._get_data_() - 0.25)
+            self.curve2.setData(self.ecg.x_data, self.ecg._get_data_() - 1.)
+            self.curve1.setData(self.ecg.x_data, self.ecg._get_data_() + 0.95)
+            self.curve.setData(self.ecg.x_data, self.ecg._get_data_())
             self.plot_widget.setXRange(-self.ecg.x_data, self.ecg.x_data)
         
 
@@ -329,19 +354,19 @@ class Dashboard(QMainWindow):
         value_resp = float(self.resp_label.text())
         value_pni = float(self.pni_label.text().split('\n')[0])
         if value_ecg > ENUM_LIST_SEUILS[0]:
-            err_value_app = ParamError('hr', self)
+            err_value_app = ParamError('hr')
             err_value_app.show()
         if value_sat > ENUM_LIST_SEUILS[1]:
-            err_value_app = ParamError('sat', self)
+            err_value_app = ParamError('sat')
             err_value_app.show()
         if value_pni > ENUM_LIST_SEUILS[2]:
-            err_value_app = ParamError('pni', self)
+            err_value_app = ParamError('pni')
             err_value_app.show()
         if value_temp > ENUM_LIST_SEUILS[3]:
-            err_value_app = ParamError('temp', self)
+            err_value_app = ParamError('temp')
             err_value_app.show()
         if value_resp > ENUM_LIST_SEUILS[4]:
-            err_value_app = ParamError('resp', self)
+            err_value_app = ParamError('resp')
             err_value_app.show()
 
 
