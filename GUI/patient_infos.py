@@ -17,7 +17,6 @@ class FenetrePatient(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Configuration Patient")
 
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         #self.setAttribute(Qt.WA_TranslucentBackground)
 
         self.clavier = None  # Initialisation du clavier visuel
@@ -53,6 +52,10 @@ class FenetrePatient(QDialog):
         self.champ_sexe.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
         #self.liste_champ.append(self.champ_sexe)
 
+        self.champ_service = QComboBox()
+        self.champ_service.addItems(['Neonatalogie', 'Pédiatrie', 'Urgences', 'Bloc Operatoire'])
+        self.champ_service.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
+
         self.champ_salle = QLineEdit()
         self.champ_salle.setPlaceholderText("ex: Salle 2")
         self.champ_salle.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
@@ -64,6 +67,7 @@ class FenetrePatient(QDialog):
         form_identite.addRow("Âge :", self.champ_age)
         form_identite.addRow("Sexe :", self.champ_sexe)
         form_identite.addRow("Salle :", self.champ_salle)
+        form_identite.addRow("Service :", self.champ_service)
         
         self.groupe_identite.setLayout(form_identite)
         main_layout.addWidget(self.groupe_identite, stretch=2)
@@ -100,8 +104,6 @@ class FenetrePatient(QDialog):
         main_layout.addWidget(self.boutons, stretch=2)
         self.setLayout(main_layout)
         #self.setFocus()
-    
-#
 
     def valider_et_suivant(self):
         """
@@ -139,7 +141,8 @@ class FenetrePatient(QDialog):
             "sexe": self.champ_sexe.currentText(),
             "poids": self.champ_poids.value(),
             "taille": self.champ_taille.value(),
-            "salle": self.champ_salle.text()
+            "salle": self.champ_salle.text(),
+            "service": self.champ_service.currentText()
         }
 
 if __name__ == "__main__":

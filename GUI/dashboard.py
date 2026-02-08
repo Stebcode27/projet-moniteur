@@ -34,8 +34,12 @@ class Dashboard(QMainWindow):
 
         self.simul_state = False
 
+        self.wrong_param = None
+
         self.heart_on, self.heart_off = "heart_on.png", "heart_off.png"
         self.state_heart = True
+
+        self.top_infos_w = QWidget()
 
         self.layout_app = QVBoxLayout()
 
@@ -52,7 +56,26 @@ class Dashboard(QMainWindow):
 
     def buildUI(self):
         """Fonction pour la construction du dashboard"""
-        #self.setWindowFlags(Qt.FramelessWindowHint)
+        layout_top = QHBoxLayout(self.top_infos_w)
+        self.top_infos_w.setStyleSheet(f"background-color: {self.theme}; border-radius: 20px;")
+
+        self.infos_patient = QLabel("Informations patient")
+        self.infos_patient.setStyleSheet("color: white; font-size: 12pt;")
+        self.infos_patient.setAlignment(Qt.AlignLeft)
+
+        self.alarm_lab = QLabel("Alarmes")
+        self.alarm_lab.setStyleSheet("color: white; font-size: 14pt; background-color: #0055AA;")
+        self.alarm_lab.setAlignment(Qt.AlignCenter)
+
+        self.utilitaires = QLabel("Utilitaires")
+        self.utilitaires.setStyleSheet("color: white; font-size: 12pt;")
+        self.utilitaires.setAlignment(Qt.AlignRight)
+
+        layout_top.addWidget(self.infos_patient, stretch=1)
+        layout_top.addWidget(self.alarm_lab, stretch=2)
+        layout_top.addWidget(self.utilitaires, stretch=1)
+
+        self.layout_app.addWidget(self.top_infos_w, stretch=1)
 
         self.barre_etat = self.statusBar()
         self.date = QLabel(datetime.now().strftime("%H:%M le %d/%m/%Y"), self)
@@ -67,6 +90,7 @@ class Dashboard(QMainWindow):
         self.barre_etat.addWidget(self.name_patient, stretch=2)
         self.barre_etat.addWidget(self.settings, stretch=1)
         self.setStatusBar(self.barre_etat)
+
         self.time_h = QTimer()
         self.time_h.timeout.connect(self.update_time)
         self.time_h.start(999)
@@ -224,7 +248,7 @@ class Dashboard(QMainWindow):
         self.curve2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=3), name="SpO2")
 
         right_layout = QVBoxLayout()
-        right_layout.addWidget(self.plot_widget, stretch=4)
+        right_layout.addWidget(self.plot_widget, stretch=6)
 
         bottom_right_layout = QHBoxLayout()
         bottom_right_layout.addWidget(conteneur_pression, stretch=2)
@@ -234,7 +258,7 @@ class Dashboard(QMainWindow):
 
         self.layout1.addLayout(right_layout, stretch=4)
 
-        self.layout_app.addLayout(self.layout1, stretch=6)
+        self.layout_app.addLayout(self.layout1, stretch=14)
 
         self.centralWidget.setLayout(self.layout_app)
 
@@ -251,32 +275,28 @@ class Dashboard(QMainWindow):
         self.timer_infos.timeout.connect(self.get_infos_patient)
         self.timer_infos.setSingleShot(True)
         self.timer_infos.start(50)
+        self.timer_txt.start(1000)
+        self.timer_heart.start(250)
 
         self.setStyleSheet(f"background-color: {COLOR_THEME['optimized']['app-color']}; font-family: {COLOR_THEME['optimized']['font-family']};")
 
     def get_infos_patient(self):
         self.app_infos_patient.show()
         if self.app_infos_patient.exec_() == QDialog.Accepted:
-            self.timer_txt.start(1000)
-            self.timer_heart.start(250)
             datas = self.app_infos_patient.get_data()
             patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
             with open(patient_info_path, 'w+') as patient_file:
                 #patient_file.write("")
-                patient_file.write(datas['nom']);patient_file.write("_");patient_file.write(datas['id']);patient_file.write("_");patient_file.write(str(datas['age']));patient_file.write("_");patient_file.write(datas['sexe']);patient_file.write("_");patient_file.write(str(datas['poids']));patient_file.write("_");patient_file.write(str(datas['taille']));patient_file.write("_");salle = datas['salle'].split(' ');
-                try:
-                    patient_file.write(str(salle[0])+str(salle[1]))
-                except IndexError:
-                    print("Erreur de données concernant la salle du patient")
-                finally:
-                    patient_file.write("\n")
+                patient_file.write(datas['nom']);patient_file.write("_");patient_file.write(datas['id']);patient_file.write("_");patient_file.write(str(datas['age']));patient_file.write("_");patient_file.write(datas['sexe']);patient_file.write("_");patient_file.write(str(datas['poids']));patient_file.write("_");patient_file.write(str(datas['taille']));patient_file.write("_");
+                patient_file.write(str(datas['salle'])); patient_file.write("_"); patient_file.write(datas['service'])
+                patient_file.write("\n")
 
             patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
             with open(patient_info_path, 'r+') as patient_file:
                 line = patient_file.readline()
                 datas = line.split('_')
-                age = int(datas[2])
-                self.name_patient.setText(datas[0]+" (Adult)") if age>=18 else self.name_patient.setText(datas[0]+ " (Mineur)")
+                resume_for_labpatient = f"{datas[0]}\nID. {datas[1]} {datas[5]}. {datas[7]}"
+                self.infos_patient.setText(resume_for_labpatient)
 
     def open_param_box(self):
         self.configbox = ConfigBox()
