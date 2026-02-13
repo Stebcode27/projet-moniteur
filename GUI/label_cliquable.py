@@ -11,12 +11,15 @@ class LabelCliquable(QLabel):
 
     clique = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, text=None):
         super().__init__()
-        settings_icon_path = os.path.join(PROJECT_ROOT, 'assets', 'gear.png')
-        pixmap = QPixmap(settings_icon_path)
-        self.setPixmap(pixmap)
-        self.setAlignment(Qt.AlignRight)
+        if text:
+            self.setText(text)
+        else:
+            settings_icon_path = os.path.join(PROJECT_ROOT, 'assets', 'gear.png')
+            pixmap = QPixmap(settings_icon_path)
+            self.setPixmap(pixmap)
+            self.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
 
     def mousePressEvent(self, ev):
         if ev.button()==Qt.LeftButton:

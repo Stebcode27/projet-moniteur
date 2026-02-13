@@ -8,7 +8,7 @@ sys.path.insert(0, PROJECT_ROOT)
 import pyqtgraph as pg
 import numpy as np
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction, QLabel, QToolBar, QVBoxLayout, QHBoxLayout, QGroupBox, QDialog, QPushButton)
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
 from PyQt5.QtGui import QIcon, QPixmap
 from datetime import datetime
 from definitions.templates_params import Ecg
@@ -32,6 +32,8 @@ class Dashboard(QMainWindow):
         self.timer_infos = None
         self.state_heart = None
 
+        self.liste_boutons_cmd = []
+
         self.simul_state = False
 
         self.wrong_param = None
@@ -39,7 +41,8 @@ class Dashboard(QMainWindow):
         self.heart_on, self.heart_off = "heart_on.png", "heart_off.png"
         self.state_heart = True
 
-        self.top_infos_w = QWidget()
+        self.top_app = QWidget()
+        self.bottom_app = QWidget()
 
         self.layout_app = QVBoxLayout()
 
@@ -53,49 +56,64 @@ class Dashboard(QMainWindow):
         self.setWindowTitle("Moniteur")
         self.setGeometry(10, 10, 800, 400)
         self.buildUI()
+        self.setContentsMargins(0, 0, 0, 0)
 
     def buildUI(self):
         """Fonction pour la construction du dashboard"""
-        layout_top = QHBoxLayout(self.top_infos_w)
-        self.top_infos_w.setStyleSheet(f"background-color: {self.theme}; border-radius: 20px;")
+        layout_top = QHBoxLayout(self.top_app)
+        self.top_app.setStyleSheet(f"background-color: {self.theme}; border-radius: 20px;")
 
-        self.infos_patient = QLabel("Informations patient")
-        self.infos_patient.setStyleSheet("color: white; font-size: 12pt;")
+        self.infos_patient = LabelCliquable("Informations patient")
+        self.infos_patient.setStyleSheet("color: white; font-size: 14pt;")
         self.infos_patient.setAlignment(Qt.AlignLeft)
+        self.infos_patient.clique.connect(self.get_infos_patient)
 
         self.alarm_lab = QLabel("Alarmes")
-        self.alarm_lab.setStyleSheet("color: white; font-size: 14pt; background-color: #0055AA;")
+        self.alarm_lab.setStyleSheet("color: white; font-size: 13pt; background-color: #0055AA;")
         self.alarm_lab.setAlignment(Qt.AlignCenter)
 
-        self.utilitaires = QLabel("Utilitaires")
+        self.settings = LabelCliquable()
+        self.settings.clique.connect(self.open_param_box)
+        self.settings.setStyleSheet('background-color: #0055AA;')
+
+        self.date = QLabel(datetime.now().strftime("%H:%M:%S"), self)
+        #self.date.setAlignment(Qt.AlignLeft)
+
+        self.utilitaires = QWidget()
+
+        layout_util = QHBoxLayout(self.utilitaires)
+        layout_util.addWidget(self.date, stretch=2)
+        layout_util.addStretch(3)
+        layout_util.addWidget(self.settings, stretch=1)
+
         self.utilitaires.setStyleSheet("color: white; font-size: 12pt;")
-        self.utilitaires.setAlignment(Qt.AlignRight)
 
         layout_top.addWidget(self.infos_patient, stretch=1)
         layout_top.addWidget(self.alarm_lab, stretch=2)
         layout_top.addWidget(self.utilitaires, stretch=1)
 
-        self.layout_app.addWidget(self.top_infos_w, stretch=1)
+        self.layout_app.addWidget(self.top_app, stretch=1)
 
-        self.barre_etat = self.statusBar()
-        self.date = QLabel(datetime.now().strftime("%H:%M le %d/%m/%Y"), self)
-        self.date.setAlignment(Qt.AlignLeft)
-        self.barre_etat.setStyleSheet(f"color: white; font-size: 25px; padding: 10px; background: {COLOR_THEME['optimized']['container-color']}")
-        self.name_patient = QLabel("Patient Name (Adult)", self)
-        self.name_patient.setAlignment(Qt.AlignCenter)
-        self.settings = LabelCliquable()
-        self.settings.clique.connect(self.open_param_box)
+        txt_buttons = ["Silence", "Pause", "Démarrer PNI", "Enregistrer", "Patient", "Vérouiller Ecran", "Paramètres"]
+        icons_buttons = [os.path.join(PROJECT_ROOT, 'assets', 'silence.png'), os.path.join(PROJECT_ROOT, 'assets', 'pause.png'), os.path.join(PROJECT_ROOT, 'assets', 'pni.png'), os.path.join(PROJECT_ROOT, 'assets', 'save.png'), os.path.join(PROJECT_ROOT, 'assets', 'patient.png'), os.path.join(PROJECT_ROOT, 'assets', 'lock.png'), os.path.join(PROJECT_ROOT, 'assets', 'gear.png')]
 
-        self.barre_etat.addWidget(self.date, stretch=1)
-        self.barre_etat.addWidget(self.name_patient, stretch=2)
-        self.barre_etat.addWidget(self.settings, stretch=1)
-        self.setStatusBar(self.barre_etat)
+        layout_bottom = QHBoxLayout(self.bottom_app)
+
+        for txt in txt_buttons:
+            button = QPushButton()
+            button.setText(txt)
+            button.setStyleSheet("color: white; font-size: 16pt; padding: 10px; background-color: #0055AA; border-radius: 20px;")
+            self.liste_boutons_cmd.append(button)
+            layout_bottom.addWidget(button)
+
+        for i in range(len(self.liste_boutons_cmd)):
+            icon = QIcon(icons_buttons[i])
+            self.liste_boutons_cmd[i].setIcon(icon)
+            self.liste_boutons_cmd[i].setIconSize(QSize(75, 75))
 
         self.time_h = QTimer()
         self.time_h.timeout.connect(self.update_time)
-        self.time_h.start(999)
-
-        #self.colors = ["#D7EE0A", "#220CE7"]
+        self.time_h.start(1)
 
         self.layout1 = QHBoxLayout()
 
@@ -260,6 +278,8 @@ class Dashboard(QMainWindow):
 
         self.layout_app.addLayout(self.layout1, stretch=14)
 
+        self.layout_app.addWidget(self.bottom_app)
+
         self.centralWidget.setLayout(self.layout_app)
 
         self.timer = QTimer()
@@ -295,8 +315,8 @@ class Dashboard(QMainWindow):
             with open(patient_info_path, 'r+') as patient_file:
                 line = patient_file.readline()
                 datas = line.split('_')
-                resume_for_labpatient = f"{datas[0]}\nID. {datas[1]} {datas[5]}. {datas[7]}"
-                self.infos_patient.setText(resume_for_labpatient)
+                resume_for_lab_patient = f"{datas[0]}\nID. {datas[1]} {datas[5]}. {datas[7]}"
+                self.infos_patient.setText(resume_for_lab_patient)
 
     def open_param_box(self):
         self.configbox = ConfigBox()
@@ -308,7 +328,7 @@ class Dashboard(QMainWindow):
                 print(self.theme)
 
     def update_time(self):
-        self.date.setText(datetime.now().strftime("%H:%M le %d/%m/%Y"))
+        self.date.setText(datetime.now().strftime("%H:%M:%S"))
 
     def update_txt(self):
         self.ecg_label.setText(str(f"{round(120*abs(self.ecg._get_data_()[len(self.ecg._get_data_())-1]))}"))
