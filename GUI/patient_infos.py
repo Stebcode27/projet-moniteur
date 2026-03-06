@@ -18,6 +18,7 @@ class FenetrePatient(QDialog):
         self.setWindowTitle("Configuration Patient")
 
         #self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
 
         self.clavier = None  # Initialisation du clavier visuel
 
@@ -122,14 +123,14 @@ class FenetrePatient(QDialog):
         hauteur = screen_dims['height']
 
         w_app = int(largeur * 0.5)
-        h_app = int(hauteur * 0.5)
+        h_app = int(hauteur * 0.75)
 
         self.resize(w_app, h_app)
 
         x_pos = int(largeur * (1 - 0.25) - w_app)
-        y_pos = int(hauteur * (1 - 0.25) - h_app)
+        y_pos = int(hauteur * (1 - 0.125) - h_app)
 
-        self.setStyleSheet(f"font-size: 10pt; background-color: #2b3245; color: white;")
+        self.setStyleSheet(f"font-size: 10pt;")
 
         self.move(x_pos, y_pos)
 

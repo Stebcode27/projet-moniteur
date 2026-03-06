@@ -11,10 +11,11 @@ from PyQt5.QtGui import *
 
 
 class ModernSwitch(QAbstractButton):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, checked=False):
         super().__init__(parent)
         self.setCheckable(True)
-        self.state = False
+        self.setChecked(checked)
+        self.state = False if not checked else True
 
         # Dimensions et couleurs
         self.setFixedSize(50, 28)
@@ -23,9 +24,12 @@ class ModernSwitch(QAbstractButton):
         self._circle_color = QColor("white")
 
         # Position du cercle (animation entre 3 et 25)
-        self._circle_pos = 3
+        if not checked:
+            self._circle_pos = 3
+        else:
+            self._circle_pos = 25
         self._anim = QPropertyAnimation(self, b"circle_pos")
-        self._anim.setDuration(300)  # 200ms pour la fluidité
+        self._anim.setDuration(200)  # 200ms pour la fluidité
         self._anim.setEasingCurve(QEasingCurve.InOutCubic)
 
     # Propriété pour l'animation
@@ -115,5 +119,5 @@ class ExampleWindow(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = ExampleWindow()
-    win.showFullScreen()
+    win.show()
     sys.exit(app.exec_())

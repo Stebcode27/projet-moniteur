@@ -17,7 +17,7 @@ THEME =  COLOR_THEME['solar']['app-color']
 
 class ConfigBox(QDialog):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, state=False):
         super(ConfigBox, self).__init__(parent)
 
         self.setWindowTitle("Configuration")
@@ -44,16 +44,16 @@ class ConfigBox(QDialog):
         largeur = screen['width']
         hauteur = screen['height']
 
-        box_height = int(hauteur * 0.5)
-        box_width = int(largeur * 0.6)
+        box_width = int(largeur * 0.5)
+        box_height = int(hauteur * 0.6)
 
         self.resize(box_width, box_height)
 
-        x_pos = int(largeur * (1 - 0.2) - box_width)
-        y_pos = int(hauteur * (1 - 0.25) - box_height)
+        x_pos = int(largeur * (1 - 0.25) - box_width)
+        y_pos = int(hauteur * (1 - 0.2) - box_height)
 
         self.move(x_pos, y_pos)
-        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
 
     def components(self):
         main_layout = QVBoxLayout()
@@ -63,22 +63,13 @@ class ConfigBox(QDialog):
         
         layout_tab.addStretch(1)
 
-        gauche_lay.addWidget(self.create_settings_row('Simulation', subtitle='Lancer l\'état de simulation de l\'appareil'))
-        self.slider = QSlider(Qt.Horizontal, self)
-        self.slider.setMinimum(10)
-        self.slider.setMaximum(25)
-        self.slider.setValue(10)
-        self.slider.setTickPosition(QSlider.TicksBelow)
-        self.slider.setTickInterval(1)
-        self.slider.valueChanged.connect(self.modifie_slide)
-        gauche_lay.addWidget(self.create_settings_row_with_widget('Taille de Police', self.slider))
-        gauche_lay.addStretch()
+        gauche_lay.addWidget(self.create_settings_row('Simulation', subtitle='Lancer le Mode Démo'))
         
         self.theme = QComboBox()
         for th in COLOR_THEME.keys():
             self.theme.addItem(th)
-        self.theme.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid black; font-size: 12pt")
-        droite_lay.addWidget(self.create_settings_row("Thème", widget=self.theme))
+        self.theme.setStyleSheet("background: white; padding: 10px; border-radius: 5px; border: 0.5px solid black; font-size: 13pt")
+        droite_lay.addWidget(self.create_settings_row("Thème", subtitle="Selectionnez le theme \nqui vous convient le mieux", widget=self.theme))
         droite_lay.addStretch()
 
 
@@ -146,7 +137,7 @@ class ConfigBox(QDialog):
 
         text_layout = QVBoxLayout()
         lbl_title = QLabel(title)
-        lbl_title.setStyleSheet("font-size: 16pt; font-weight: 400;")
+        lbl_title.setStyleSheet("font-size: 14pt; font-weight: 400;")
         text_layout.addWidget(lbl_title)
 
         if subtitle:
@@ -156,16 +147,6 @@ class ConfigBox(QDialog):
 
         row_layout.addLayout(text_layout)
         row_layout.addStretch()
-
-        value_lay = QVBoxLayout()
-        self.slide_lab_val = QLabel()
-        self.slide_lab_val.setText(str(self.slider.minimum()))
-        value_lay.addWidget(self.slide_lab_val)
-
-        # Le Slider
-        if widget:
-            value_lay.addWidget(widget)
-        row_layout.addLayout(value_lay)
 
         return frame
 
