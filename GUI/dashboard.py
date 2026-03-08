@@ -6,19 +6,18 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 
 import pyqtgraph as pg
-import numpy as np
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction, QLabel, QToolBar, QVBoxLayout, QHBoxLayout, QGroupBox, QDialog, QPushButton)
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QDialog, QPushButton, QMessageBox)
+from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QIcon, QPixmap
 from datetime import datetime
 from definitions.templates_params import Ecg, Saturation, Respiration, Pression, Temperature
 from GUI.patient_infos import FenetrePatient
-from definitions.erreur_seuils import ParamError, ENUM_LIST_SEUILS
 from utilities.preferences import COLOR_THEME, PARAMS_SEUILS
 from GUI.label_cliquable import LabelCliquable
 from GUI.configs import ConfigBox
 from GUI.log_widget import LogWidget
 from GUI.admission_patient import AdmissionPatient
+from utilities.scan_trans import WifiScannerForServer
 
 class Dashboard(QMainWindow):
 
@@ -37,6 +36,20 @@ class Dashboard(QMainWindow):
         self.barre_etat = None
         self.timer_infos = None
         self.state_heart = None
+
+        self.scanner = None
+        self.data_to_transfer = {
+            'hr': [],
+            'sat': [],
+            'pni': {
+                'systo': [],
+                'diasto': [],
+                'pam': []
+            },
+            'temp': [],
+            'resp': []
+        }
+        self.status_saved = False
 
         self.pause_state = False
 
@@ -128,6 +141,8 @@ class Dashboard(QMainWindow):
                 button.clicked.connect(self.open_param_box)
             elif button.text() == "Pause":
                 button.clicked.connect(self.pause)
+            elif button.text() == "Enregistrer":
+                button.clicked.connect(self.start_transfert)
 
         self.time_h = QTimer()
         self.time_h.timeout.connect(self.update_time)
@@ -345,9 +360,13 @@ class Dashboard(QMainWindow):
         self.timer_log = QTimer()
         self.timer_log.timeout.connect(self.update_log)
 
+        self.timer_buffer_tosend = QTimer()
+        self.timer_buffer_tosend.timeout.connect(self.update_data_to_send)
+
         self.timer_txt.start(1)
-        self.timer_heart.start(250)
+        self.timer_heart.start(500)
         self.timer_log.start(1000)
+        self.timer_buffer_tosend.start(500)
 
         self.setStyleSheet(f"background-color: {COLOR_THEME['default']['app-color']}; font-family: {COLOR_THEME['default']['font-family']};")
 
@@ -370,9 +389,26 @@ class Dashboard(QMainWindow):
                 self.infos_patient.setText(resume_for_lab_patient)
 
     def add_patient(self):
-        self.admission_patient.show();
         if self.admission_patient.exec_() == QDialog.Accepted:
-            pass
+            messagebox = QMessageBox()
+            messagebox.setIcon(QMessageBox.Information)
+            messagebox.setText("Enregistrez d'abord les données du patient actuel!")
+            messagebox.setStandardButtons(QMessageBox.Yes)
+            messagebox.setDefaultButton(QMessageBox.Yes)
+            messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+            if messagebox.exec_() == QDialog.Accepted:
+                self.status_saved = True
+
+    def start_transfert(self):
+        messagebox = QMessageBox()
+        messagebox.setIcon(QMessageBox.Information)
+        messagebox.setText("Voulez vous commencer l'enregistrement des données du patient actuel sur le serveur distant ?")
+        messagebox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        messagebox.setDefaultButton(QMessageBox.Yes)
+        messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+        if messagebox.exec_() == QMessageBox.Yes:
+            self.scanner = WifiScannerForServer({"data": [0]})
+            self.scanner.show()
 
     def open_param_box(self):
         self.configbox = ConfigBox()
@@ -393,6 +429,7 @@ class Dashboard(QMainWindow):
         self.conteneur_saturation.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
         self.conteneur_resp_temp.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
         self.conteneur_history.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
+        self.top_app.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
 
     def update_time(self):
         self.date.setText(datetime.now().strftime("%H:%M:%S"))
@@ -444,16 +481,23 @@ class Dashboard(QMainWindow):
         else:
             pass
 
+    def update_data_to_send(self):
+        self.data_to_transfer['hr'].append(self.ecg.bpm)
+        self.data_to_transfer['sat'].append(self.saturation.spo2_val)
+        self.data_to_transfer['pni']['systo'].append(self.pression.systo)
+        self.data_to_transfer['pni']['diasto'].append(self.pression.diasto)
+        self.data_to_transfer['pni']['pam'].append(self.pression.pam)
+        self.data_to_transfer['temp'].append(self.temperature.temperature)
+        self.data_to_transfer['resp'].append(self.respiration.rpm)
+
     def pause(self):
         if not self.pause_state:
             self.timer.stop()
-            self.timer_infos.stop()
             self.timer_heart.stop()
             self.timer_txt.stop()
             self.pause_state = True
         else:
             self.timer.start()
-            self.timer_infos.start()
             self.timer_heart.start()
             self.timer_txt.start()
             self.pause_state = False

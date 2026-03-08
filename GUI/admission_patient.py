@@ -11,12 +11,13 @@ class AdmissionPatient(QDialog):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Patients')
+        self.setWindowTitle('Admission Patient')
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         self.layout = QVBoxLayout()
         self.resize(800, 600)
 
         self.patient_list = []
+        self.admettre_nouveau = False
 
         self.top_widget = QWidget()
         main_layout = QVBoxLayout(self.top_widget)
@@ -26,32 +27,46 @@ class AdmissionPatient(QDialog):
         label_content.setContentsMargins(10,10,10,10)
         label_content.setAlignment(Qt.AlignCenter)
 
-        main_layout.addWidget(label_top)
-        main_layout.addWidget(label_content)
+        main_layout.addWidget(label_top, stretch=1)
+        main_layout.addWidget(label_content, stretch=2)
 
-        self.layout.addWidget(self.top_widget)
+        self.layout.addWidget(self.top_widget, stretch=1)
 
         self.tree = QTreeWidget()
         self.tree.setColumnCount(5)
         self.tree.setHeaderLabels(['Nom', 'ID', 'Date', 'Salle', 'Service'])
         self.tree.setAlternatingRowColors(True)
-        self.tree.setColumnWidth(0,250)
+        self.tree.setColumnWidth(0,300)
+        self.tree.setColumnWidth(3, 75)
+        self.tree.setColumnWidth(4, 125)
 
         self.get_list_next_patient()
 
         for patient in self.patient_list:
             self.add_item(patient['nom'], patient['id'], patient['date'], patient['salle'], patient['service'])
 
-        self.layout.addWidget(self.tree)
+        self.layout.addWidget(self.tree, stretch=2)
         self.buildUI()
 
         self.boutons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
         self.boutons.accepted.connect(self.accept)
         self.boutons.rejected.connect(self.reject)
 
-        self.layout.addWidget(self.boutons)
+        self.layout.addWidget(self.boutons, stretch=1)
 
         self.setLayout(self.layout)
+
+    def confirmation(self):
+        messageBox = QMessageBox()
+        messageBox.setText("Etes-vous sur de le faire ?")
+        messageBox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+        messageBox.setWindowTitle("Confirmation")
+        messageBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        messageBox.setDefaultButton(QMessageBox.No)
+        if messageBox.exec_() == QMessageBox.Yes:
+            self.admettre_nouveau = True
+        else:
+            print('no')
 
     def get_list_next_patient(self):
         file_path = os.path.join(PROJECT_ROOT, 'datas', 'last_exams.txt')

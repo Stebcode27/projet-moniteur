@@ -77,6 +77,7 @@ class Ecg(Param):
             print(f"Impossible d'ouvrir le fichier spécifié. Erreur: {e}")
             return
         filt_list = []
+        bpm=0.
         for sample in self._data_:
             p, der, filtred = self.pt.process(sample)
             bpm, d = self.pt.detect_peak(p, der)
@@ -140,7 +141,7 @@ class Respiration(Param):
         self.x_data = np.arange(self.maxpoint)
 
         # Paramètres respiratoires
-        self.rpm = 15  # Respirations Par Minute (très lent)
+        self.rpm = 35  # Respirations Par Minute (très lent)
         self.resp_rate = 98  # Valeur numérique (%)
 
     def _generate_resp_wave(self, i):
