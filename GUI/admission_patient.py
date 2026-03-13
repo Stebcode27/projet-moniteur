@@ -14,7 +14,8 @@ class AdmissionPatient(QDialog):
         self.setWindowTitle('Admission Patient')
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         self.layout = QVBoxLayout()
-        self.resize(800, 600)
+        self.resize(450, 350)
+
 
         self.patient_list = []
         self.admettre_nouveau = False
@@ -46,7 +47,6 @@ class AdmissionPatient(QDialog):
             self.add_item(patient['nom'], patient['id'], patient['date'], patient['salle'], patient['service'])
 
         self.layout.addWidget(self.tree, stretch=2)
-        self.buildUI()
 
         self.boutons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
         self.boutons.accepted.connect(self.accept)

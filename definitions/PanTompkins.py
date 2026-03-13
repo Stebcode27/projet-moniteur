@@ -128,7 +128,7 @@ class PanTompkinsDetector:
                     self.last_peak_sample = self.current_sample_count
                     detected = True
                     bpm = (60 * 360) / self.avg_rr
-                    print(f"Battement {self.count} | BPM: {bpm:.1f} | RR: {time_since_last}")
+                    #print(f"Battement {self.count} | BPM: {bpm:.1f} | RR: {time_since_last}")
                 else:
                     # C'est du bruit
                     self.threshold.updateNoise(possible_pk)

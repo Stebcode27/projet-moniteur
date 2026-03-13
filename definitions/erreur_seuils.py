@@ -1,112 +1,40 @@
-"""Definition de tous les seuils des paramètres pour la gestion des erreurs"""
 import sys
 import os
 
-# Obtenir le chemin absolu du dossier racine du projet
+# Obtenir le chemin absolu du dossier racine du projet (mon_projet/)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
-from PyQt5.QtWidgets import QDialog, QHBoxLayout, QApplication, QLabel, QPushButton, QVBoxLayout
-from PyQt5.QtCore import Qt, QTimer
-from utilities.ecran import get_screen_dimensions
+from PyQt5.QtCore import QThread, pyqtSignal
 
-nbr_params = 5
+class SurveillanceThread(QThread):
+    # Signal envoyé lorsqu'une alerte est détectée ou modifiée
+    # Envoie le nom du paramètre et un booléen (True si alerte)
+    alerte_detectee = pyqtSignal(str, bool)
 
-ENUM_LIST_SEUILS = [5 for i in range(nbr_params)]
-
-class ParamError(QDialog):
-
-    def __init__(self, param_name='hr', details="rien à signaler", freq=500, parent=None):
-        self.details = details
-        self.param_name = param_name
-        self.message = f"Le paramètre {self._get_name_param_(param_name)} n'est pas correct!"
+    def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent = parent
+        self.running = True
 
-        self.state = True
-        self.timer = QTimer(self)
+    def run(self):
+        while self.running:
+            # On récupère les seuils (assure-toi que PARAMS_SEUILS est accessible)
+            from utilities.preferences import PARAMS_SEUILS
+            
+            # Vérification HR (Index 0 dans PARAMS_SEUILS)
+            hr_alerte = not (PARAMS_SEUILS[0]['val_min'] <= self.parent.ecg.bpm <= PARAMS_SEUILS[0]['val_max'])
+            self.alerte_detectee.emit("hr", hr_alerte)
 
-        self.timer.setSingleShot(True)
-        self.timer.timeout.connect(self.close)
-        self.timer.start(5000)
+            # Vérification SpO2 (Index 1)
+            sat_alerte = not (PARAMS_SEUILS[1]['val_min'] <= self.parent.saturation.spo2_val < 100)
+            self.alerte_detectee.emit("spo2", sat_alerte)
 
-        self.details_lab = QLabel(self)
-        self.details_lab.setText(self.details)
-        self.details_lab.setAlignment(Qt.AlignCenter)
+            # Vérification Resp (Index 3)
+            resp_alerte = not (PARAMS_SEUILS[3]['val_min'] <= self.parent.respiration.rpm <= PARAMS_SEUILS[3]['val_max'])
+            self.alerte_detectee.emit("resp", resp_alerte)
 
-        self.buildBox()
+            #Vérification Temp (index 4)
+            temp_alerte = not (PARAMS_SEUILS[4]['val_min'] <= self.parent.temperature.temperature <= PARAMS_SEUILS[4]['val_max'])
+            self.alerte_detectee.emit("temp", temp_alerte)
 
-        self.configure_text_color()
-
-        self.buildUI()
-
-    def _get_name_param_(self, param):
-        if param=='hr':
-            return "frequence respiratoire"
-        elif param=='pni':
-            return "pression artérielle"
-        elif param=='temp':
-            return "temperature"
-        elif param=='resp':
-            return "frequence respiratoire"
-        else:
-            return "saturation en oxygene"
-
-    def cacher(self):
-        if self.state:
-            self.hide()
-            self.state = False
-        else:
-            self.show()
-            self.state = True
-
-    def _set_message_(self, mess):
-        self.message = mess
-    def _get_param_value_(self):
-        return self.param_value
-
-    def configure_text_color(self):
-        dict_params = {
-           'hr': '#33FF57',
-           'sat': '#FF500A',
-           'pni': '#fbfbfb',
-           'temp': "#2093FF",
-           'resp': '#DFEE0A'
-        }
-        if self.param_name in dict_params:
-            self.color = dict_params[self.param_name]
-
-    def buildBox(self):
-        screen_dims = get_screen_dimensions()
-        largeur = screen_dims['width']
-        hauteur = screen_dims['height']
-
-        w_app = int(largeur * 0.4)#largeur 40%
-        h_app = int(hauteur * 0.1)#hauteur 5%
-
-        self.resize(w_app, h_app)
-
-        x_pos = int(largeur * (1 - 0.3) - w_app)
-
-        self.move(x_pos, 50)
-
-    def buildUI(self):
-        self.box_layout = QVBoxLayout()
-        self.box_layout.setContentsMargins(0, 0, 0, 0)
-        self.label = QLabel(self)
-        self.label.setAlignment(Qt.AlignCenter)
-        self.details_lab.setStyleSheet("font-weight: normal; font-size: 12pt")
-
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-
-        self.label.setText(self.message)
-        self.setStyleSheet(f"font-size: 15pt; font-weight: bold; background-color: {self.color}; font-family: roboto; padding: 20px;")
-        self.box_layout.addWidget(self.label, stretch=2)
-        self.box_layout.addStretch(1)
-        self.box_layout.addWidget(self.details_lab, stretch=2)
-
-        self.setLayout(self.box_layout)
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    param = ParamError('temp')
-    param.show()
-    sys.exit(app.exec_())
+            self.msleep(1000) # Vérification chaque seconde

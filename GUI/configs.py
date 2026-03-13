@@ -21,6 +21,7 @@ class ConfigBox(QDialog):
         super(ConfigBox, self).__init__(parent)
 
         self.setWindowTitle("Configuration")
+        self.setMaximumHeight(500)
 
         self.buildUI()
 
@@ -64,13 +65,16 @@ class ConfigBox(QDialog):
         layout_tab.addStretch(1)
 
         gauche_lay.addWidget(self.create_settings_row('Simulation', subtitle='Lancer le Mode Démo'))
+        gauche_lay.addStretch(1)
         
         self.theme = QComboBox()
         for th in COLOR_THEME.keys():
             self.theme.addItem(th)
         self.theme.setStyleSheet("background: white; padding: 10px; border-radius: 5px; border: 0.5px solid black; font-size: 13pt")
         droite_lay.addWidget(self.create_settings_row("Thème", subtitle="Selectionnez le theme \nqui vous convient le mieux", widget=self.theme))
-        droite_lay.addStretch()
+        #droite_lay.addStretch()
+
+        droite_lay.addWidget(self.create_settings_row_with_widget('Paramètres', "Appliquez les configurations qui vous conviennent"))
 
 
         self.boutons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)

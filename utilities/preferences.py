@@ -48,7 +48,11 @@ PARAMS_SEUILS = [
         'id': 'RESP',
         'val_min': 40,
         'val_max': 80,
-    },
+    },{
+        'id': 'TEMP',
+        'val_min': 30,
+        'val_max': 42,
+    }
 ]
 
 if __name__ == '__main__':

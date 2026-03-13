@@ -1,1 +1,1 @@
------Beginning of transmission at the 09/03/2026 at 00:21:12-----<HR>-0.011665039062483812</HR><SPO2>-0.011665039062483812</SPO2>-----End of transmission-----
+-----<HR>86</HR><SPO2>95</SPO2>-----

@@ -16,15 +16,40 @@ except:
 
 import wfdb
 from definitions.PanTompkins import PanTompkinsDetector
-from threading import Thread
+from PyQt5.QtCore import QThread, pyqtSignal
+import serial
+import struct
 
 MAXPOINT = 500
 
+class Interface(QThread):
+
+    onChanged = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+        self.ecg = 0
+        self.sat = 0
+        self.temp = 0
+        self.pression = 0
+
+    def run(self):
+        ser = serial.Serial("COM8", 115200, timeout=1)
+        packet_format = "<BffffIB"
+        packet_size = struct.calcsize(packet_format)
+
+        while True:
+            if ser.in_waiting > packet_size:
+                raw_data = ser.read(packet_size)
+
+                header, ecg, sat, temp, pression, ts, footer = struct.unpack(packet_format, raw_data)
+                self.ecg, self.sat, self.temp, self.pression = ecg, sat, temp, pression
+                self.onChanged.emit()
+
 #Template pour tous les paramètres du moniteur
-class Param(Thread):
+class Param():
 
     def __init__(self, param_name):
-        Thread.__init__(self)
         self.maxpoint = MAXPOINT   #pour eviter les messages d'erreur en cas de manque de données
         self._data_ = np.zeros(self.maxpoint, dtype='int16')
         self.param_name = param_name
@@ -54,7 +79,9 @@ class Ecg(Param):
         self.update_interval = 25
         self.x_data = np.arange(self.ptr,self.maxpoint)
         self.pt = PanTompkinsDetector()
-        self.bpm = 80
+        self.bpm = 70
+
+        self.detection = (0,False)
     
     def update_data(self):
         self.buffer[self.ptr] = self._get_data_()[self.ptr] * 0.5
@@ -65,7 +92,7 @@ class Ecg(Param):
             self.buffer[idx_to_clear] = np.nan  # Efface la vieille donnée
         # -------------------------
         self.ptr = (self.ptr + 1) % self.maxpoint
-        #self.x_data = np.arange(self.ptr-self.maxpoint,self.ptr)
+
 
     def get_mit_data(self):
         try:
@@ -80,9 +107,13 @@ class Ecg(Param):
         bpm=0.
         for sample in self._data_:
             p, der, filtred = self.pt.process(sample)
-            bpm, d = self.pt.detect_peak(p, der)
+            self.detection = self.pt.detect_peak(p, der)
+            if self.detection[1]:
+                self.bpm = int(self.detection[0])
             filt_list.append(filtred)
         self._set_data_(filt_list)
+    def setbpm(self, bpm):
+        self.bpm = bpm
 
 class Saturation(Param):
     def __init__(self):
@@ -96,7 +127,7 @@ class Saturation(Param):
 
         # Paramètres physiologiques
         self.bpm = 70  # On peut imaginer synchroniser cela avec l'ECG plus tard
-        self.spo2_val = 98  # Valeur numérique (%)
+        self.spo2_val = 95  # Valeur numérique (%)
 
     def _generate_pleth_wave(self, i):
         """ Génère une onde de pouls réaliste (montée rapide, descente dicrote) """
@@ -126,6 +157,7 @@ class Saturation(Param):
         # 4. Incrémenter les index
         self.ptr = (self.ptr + 1) % self.maxpoint
         self.data_index += 1
+        #self.spo2_val = self.interface.sat
 
     def get_display_data(self):
         return self.display_buffer
@@ -141,7 +173,7 @@ class Respiration(Param):
         self.x_data = np.arange(self.maxpoint)
 
         # Paramètres respiratoires
-        self.rpm = 35  # Respirations Par Minute (très lent)
+        self.rpm = 50  # Respirations Par Minute (très lent)
         self.resp_rate = 98  # Valeur numérique (%)
 
     def _generate_resp_wave(self, i):
@@ -177,6 +209,7 @@ class Respiration(Param):
         # 4. Incrémenter
         self.ptr = (self.ptr + 1) % self.maxpoint
         self.data_index += 1
+        #self.rpm = self.interface.ecg
 
     def get_display_data(self):
         return self.display_buffer
@@ -198,7 +231,7 @@ class Temperature(Param):
 
     def __init__(self):
         super(Temperature, self).__init__("temp")
-        self.temperature = 37.1
+        self.temperature = 36.5
 
     def update_value(self, temperature):
         self.temperature = temperature

@@ -18,7 +18,7 @@ class ClavierVisuel(QDialog):
     def __init__(self, target_line_edit=None, text_box=True):
         super().__init__()
         self.setWindowTitle("Clavier Visuel")
-        self.setWindowFlags(Qt.WindowStaysOnTopHint)  # Optionnel: Sans barre de titre
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)  # Optionnel: Sans barre de titre
 
         # Le champ de saisie que l'on est en train de remplir (dans la fenêtre fille)
         self.cible = target_line_edit
@@ -146,7 +146,7 @@ class ClavierVisuel(QDialog):
             self.cible.setValue(self.buffer)
         self.cible.clearFocus()
         self.validation_saisie.emit()
-        self.accept()  # Ferme le dialogue avec succès
+        self.hide()  # Ferme le dialogue avec succès
 
     def keyPressEvent(self, event):
         key = event.key()

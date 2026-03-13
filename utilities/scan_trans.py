@@ -6,23 +6,31 @@ import os
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 
-from PyQt5.QtWidgets import QApplication, QDialog, QVBoxLayout, QListWidget, QPushButton, QLabel, QMessageBox, QHBoxLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QVBoxLayout, QListWidget, QPushButton, QLabel, QMessageBox, QHBoxLayout
 from PyQt5.QtNetwork import QUdpSocket, QTcpSocket, QHostAddress
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QMovie
 from utilities.ecran import get_screen_dimensions
 
 class WifiScannerForServer(QDialog):
-    def __init__(self, data_to_send):
+    def __init__(self, data_to_send=None):
         super().__init__()
         self.setWindowTitle("Wifi Scanner")
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
-        self.setMinimumSize(500, 300)
-        self.setMaximumSize(600, 400)
+        self.setMinimumSize(600, 300)
+        self.setMaximumSize(700, 400)
         self.payload = data_to_send
         self.target_port = 8080
         self.udp_port = 45454
 
+        self.connected_to_server = False
+
         self.setStyleSheet("font: normal 9pt Consolas;")
+
+        self.widget = QWidget()
+        self.widget_lay = QVBoxLayout(self.widget)
+
+        self.label = QLabel()
 
         #config réseau
         self.udp_socket = QUdpSocket(self)
@@ -33,13 +41,16 @@ class WifiScannerForServer(QDialog):
         self.tcp_socket.connected.connect(self.on_tcp_connected)
         self.tcp_socket.error.connect(self.on_tcp_error)
 
+        self.ico_wifi_search = os.path.join(PROJECT_ROOT, 'assets', 'radio.gif')
+
         #interface
-        layout = QVBoxLayout(self)
+        self.layout = QVBoxLayout(self)
         self.status_lab = QLabel("Cliquez sur scanner pour trouver des machines...")
-        layout.addWidget(self.status_lab)
+        self.layout.addWidget(self.status_lab)
 
         self.list_devices = QListWidget()
-        layout.addWidget(self.list_devices)
+        self.widget_lay.addWidget(self.list_devices)
+        self.layout.addWidget(self.widget)
 
         btn_lay = QHBoxLayout()
         self.btn_scan = QPushButton("Scanner le réseau")
@@ -52,17 +63,26 @@ class WifiScannerForServer(QDialog):
 
         btn_lay.addWidget(self.btn_scan)
         btn_lay.addWidget(self.btn_send)
-        layout.addLayout(btn_lay)
+        self.layout.addLayout(btn_lay)
 
     def send_broadcast_query(self):
         self.list_devices.clear()
         self.status_lab.setText("Recherche en cours...")
+
+        self.list_devices.hide()
+
+        movie = QMovie(self.ico_wifi_search)
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setMovie(movie)
+        movie.start()
+        self.widget_lay.addWidget(self.label)
 
         message = b"MONITOR_REQUEST"
 
         #envoie à l'adresse de broadcast sur le port dédié
         try:
             self.udp_socket.writeDatagram(message, QHostAddress.Broadcast, self.udp_port)
+            #print('envoyé')
         except Exception as e:
             print("Erreur lourde: " + str(e))
 
@@ -75,10 +95,11 @@ class WifiScannerForServer(QDialog):
             #si la machine répond avec le bon code?
             if "MONITOR_ALIVE" in response:
                 ip_adress = host.toString()
-                if not self.list_devices.findItems(ip_adress, 0):
-                    self.list_devices.addItem(ip_adress)
-                    self.btn_send.setEnabled(True)
+                self.list_devices.addItem(ip_adress)
+                self.btn_send.setEnabled(True)
                 self.status_lab.setText("Machine(s) trouvée(s) !")
+                self.label.hide()
+                self.list_devices.show()
 
     def start_tcp_transfert(self):
         selected = self.list_devices.currentItem()
@@ -88,6 +109,7 @@ class WifiScannerForServer(QDialog):
         self.btn_send.setEnabled(False)
 
         self.tcp_socket.connectToHost(ip, self.target_port)
+        self.connected_to_server = True
 
     def on_tcp_connected(self):
         raw_data = json.dumps(self.payload).encode()
@@ -102,8 +124,13 @@ class WifiScannerForServer(QDialog):
             self.btn_send.setEnabled(True)
 
     def on_tcp_error(self, error):
-        QMessageBox.critical(self, "Erreur TCP", self.tcp_socket.errorString())
+        #QMessageBox.critical(self, "Erreur TCP", self.tcp_socket.errorString())
         self.btn_send.setEnabled(True)
+
+    def set_payload(self, payload):
+        self.payload = payload
+    def get_payload(self):
+        return self.payload
 
 
 if __name__ == '__main__':

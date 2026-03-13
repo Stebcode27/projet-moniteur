@@ -6,11 +6,13 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 
 import pyqtgraph as pg
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QDialog, QPushButton, QMessageBox)
-from PyQt5.QtCore import Qt, QTimer, QSize
-from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QDialog, QPushButton,
+                             QMessageBox, QGraphicsColorizeEffect)
+from PyQt5.QtCore import Qt, QTimer, QSize, QPropertyAnimation
+from PyQt5.QtGui import QIcon, QPixmap, QColor
 from datetime import datetime
 from definitions.templates_params import Ecg, Saturation, Respiration, Pression, Temperature
+from definitions.erreur_seuils import SurveillanceThread
 from GUI.patient_infos import FenetrePatient
 from utilities.preferences import COLOR_THEME, PARAMS_SEUILS
 from GUI.label_cliquable import LabelCliquable
@@ -37,7 +39,7 @@ class Dashboard(QMainWindow):
         self.timer_infos = None
         self.state_heart = None
 
-        self.scanner = None
+        self.scanner = WifiScannerForServer()
         self.data_to_transfer = {
             'hr': [],
             'sat': [],
@@ -49,6 +51,8 @@ class Dashboard(QMainWindow):
             'temp': [],
             'resp': []
         }
+        self.alerte_status = False
+
         self.status_saved = False
 
         self.pause_state = False
@@ -75,11 +79,19 @@ class Dashboard(QMainWindow):
         self.configbox = None
 
         self.theme = None
+        self.wifi_on = os.path.join(PROJECT_ROOT, 'assets', 'wifi_on.png')
+        self.wifi_off = os.path.join(PROJECT_ROOT, 'assets', 'wifi_off.png')
 
         self.setWindowTitle("Moniteur")
         self.setGeometry(10, 10, 800, 400)
         self.buildUI()
         self.setContentsMargins(0, 0, 0, 0)
+
+        self.setup_animations()
+
+        self.thread_surveillance = SurveillanceThread(self)
+        self.thread_surveillance.alerte_detectee.connect(self.gerer_alerte_visuelle)
+        self.thread_surveillance.start()
 
     def buildUI(self):
         """Fonction pour la construction du dashboard"""
@@ -95,19 +107,16 @@ class Dashboard(QMainWindow):
         self.alarm_lab.setStyleSheet("color: white; font-size: 13pt; background-color: #0055AA;")
         self.alarm_lab.setAlignment(Qt.AlignCenter)
 
-        self.settings = LabelCliquable()
-        self.settings.clique.connect(self.open_param_box)
-        self.settings.setStyleSheet('background-color: #0055AA;')
-
         self.date = QLabel(datetime.now().strftime("%H:%M:%S"), self)
-        #self.date.setAlignment(Qt.AlignLeft)
 
         self.utilitaires = QWidget()
 
+        self.label_wifi = QLabel()
+        self.label_wifi.setPixmap(QPixmap(self.wifi_off))
+
         layout_util = QHBoxLayout(self.utilitaires)
         layout_util.addWidget(self.date, stretch=2)
-        layout_util.addStretch(3)
-        layout_util.addWidget(self.settings, stretch=1)
+        layout_util.addWidget(self.label_wifi, stretch=2)
 
         self.utilitaires.setStyleSheet("color: white; font-size: 12pt;")
 
@@ -117,8 +126,8 @@ class Dashboard(QMainWindow):
 
         self.layout_app.addWidget(self.top_app, stretch=1)
 
-        txt_buttons = ["Silence", "Pause", "Démarrer PNI", "Enregistrer", "Patient", "Paramètres"]
-        icons_buttons = [os.path.join(PROJECT_ROOT, 'assets', 'silence.png'), os.path.join(PROJECT_ROOT, 'assets', 'pause.png'), os.path.join(PROJECT_ROOT, 'assets', 'pni.png'), os.path.join(PROJECT_ROOT, 'assets', 'save.png'), os.path.join(PROJECT_ROOT, 'assets', 'patient.png'), os.path.join(PROJECT_ROOT, 'assets', 'gear.png')]
+        txt_buttons = ["Silence", "Pause", "Démarrer PNI", "Enregistrer", "Patient", "Menu"]
+        icons_buttons = [os.path.join(PROJECT_ROOT, 'assets', 'silence.png'), os.path.join(PROJECT_ROOT, 'assets', 'pause.png'), os.path.join(PROJECT_ROOT, 'assets', 'pni.png'), os.path.join(PROJECT_ROOT, 'assets', 'save.png'), os.path.join(PROJECT_ROOT, 'assets', 'patient.png'), os.path.join(PROJECT_ROOT, 'assets', 'menu.png')]
 
         layout_bottom = QHBoxLayout(self.bottom_app)
 
@@ -137,7 +146,7 @@ class Dashboard(QMainWindow):
         for button in self.liste_boutons_cmd:
             if button.text() == "Patient":
                 button.clicked.connect(self.add_patient)
-            elif button.text() == "Paramètres":
+            elif button.text() == "Menu":
                 button.clicked.connect(self.open_param_box)
             elif button.text() == "Pause":
                 button.clicked.connect(self.pause)
@@ -233,7 +242,7 @@ class Dashboard(QMainWindow):
         self.sat_label = QLabel("__", self)
         self.hr_in_sat = QLabel("HR")
         percent_lab = QLabel("%")
-        percent_lab.setStyleSheet("color: #FF500A; font-size: 13pt;")
+        percent_lab.setStyleSheet("color: #FF500A; font-size: 14pt;")
         first_ligne = QHBoxLayout()
         first_ligne.setContentsMargins(0, 0, 0, 0)
         first_ligne.addWidget(sat_lab, 1)
@@ -327,9 +336,9 @@ class Dashboard(QMainWindow):
             label.setPos(self.ecg.x_data[0], self.ecg.buffer[0])
             self.plot_widget.addItem(label)
 
-        self.curve_resp = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=5))
-        self.curve_ecg = self.plot_widget.plot(pen=pg.mkPen(color='lime', width=5))
-        self.curve_spo2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=5))
+        self.curve_resp = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=3))
+        self.curve_ecg = self.plot_widget.plot(pen=pg.mkPen(color='lime', width=3))
+        self.curve_spo2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=3))
 
         right_layout = QVBoxLayout()
         right_layout.addWidget(self.plot_widget, stretch=6)
@@ -366,9 +375,51 @@ class Dashboard(QMainWindow):
         self.timer_txt.start(1)
         self.timer_heart.start(500)
         self.timer_log.start(1000)
-        self.timer_buffer_tosend.start(500)
+        self.timer_buffer_tosend.start(100)
 
         self.setStyleSheet(f"background-color: {COLOR_THEME['default']['app-color']}; font-family: {COLOR_THEME['default']['font-family']};")
+
+    def setup_animations(self):
+        self.animations = {}
+        self.effects = {}
+
+        # Dictionnaire pour mapper les signaux aux conteneurs
+        self.map_conteneurs = {
+            "hr": self.conteneur_ecg,
+            "spo2": self.conteneur_saturation,
+            "resp": self.resp_label,
+            "temp": self.temp_label,
+            "pni": self.conteneur_pression
+        }
+
+        for key, widget in self.map_conteneurs.items():
+            # Créer un effet de coloration
+            eff = QGraphicsColorizeEffect(widget)
+            widget.setGraphicsEffect(eff)
+            eff.setEnabled(False)  # Désactivé par défaut
+            self.effects[key] = eff
+
+            # Créer l'animation de clignotement (Rouge)
+            anim = QPropertyAnimation(eff, b"color")
+            anim.setDuration(500)
+            anim.setStartValue(QColor(Qt.red))
+            anim.setEndValue(QColor(0, 0, 0, 0))  # Retour à l'original
+            anim.setLoopCount(-1)  # Infini tant que l'alerte est là
+            self.animations[key] = anim
+
+    def gerer_alerte_visuelle(self, param, en_alerte):
+        if en_alerte:
+            self.alerte_status = True
+            if not self.animations[param].state() == QPropertyAnimation.Running:
+                self.effects[param].setEnabled(True)
+                self.animations[param].start()
+                # Optionnel : changer le texte de l'alarme en haut
+                self.alarm_lab.setText(f"ALERTE : {param.upper()} HORS SEUILS")
+                self.alarm_lab.setStyleSheet("background-color: red; color: white; font-size: 12pt;")
+        else:
+            self.alerte_status = False
+            self.animations[param].stop()
+            self.effects[param].setEnabled(False)
 
     def get_infos_patient(self):
         self.app_infos_patient.show()
@@ -407,8 +458,8 @@ class Dashboard(QMainWindow):
         messagebox.setDefaultButton(QMessageBox.Yes)
         messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         if messagebox.exec_() == QMessageBox.Yes:
-            self.scanner = WifiScannerForServer({"data": [0]})
             self.scanner.show()
+            self.scanner.set_payload(self.data_to_transfer)
 
     def open_param_box(self):
         self.configbox = ConfigBox()
@@ -433,12 +484,13 @@ class Dashboard(QMainWindow):
 
     def update_time(self):
         self.date.setText(datetime.now().strftime("%H:%M:%S"))
-        if self.simul_state:
-            self.alarm_lab.setText('Mode Démo')
-            self.alarm_lab.setStyleSheet('color: white; font-size: 13pt; background-color: #999950')
-        else:
-            self.alarm_lab.setText('Alarmes')
-            self.alarm_lab.setStyleSheet('color: white; font-size: 13pt; background-color: #0055AA')
+        if not self.alerte_status:
+            if self.simul_state:
+                self.alarm_lab.setText('Mode Démo')
+                self.alarm_lab.setStyleSheet('color: white; font-size: 13pt; background-color: #999950')
+            else:
+                self.alarm_lab.setText('Alarmes')
+                self.alarm_lab.setStyleSheet('color: white; font-size: 13pt; background-color: #0055AA')
 
     def update_txt(self):
         if self.simul_state:
@@ -450,6 +502,11 @@ class Dashboard(QMainWindow):
             self.press_moy_value.setText(str(f"{self.pression.pam}"))
             self.hr_in_sat.setText(str(f"{self.ecg.bpm}")+' bpm')
         self.storage()
+        #on met à jour l'icone du wifi
+        if self.scanner.connected_to_server:
+            self.label_wifi.setPixmap(QPixmap(self.wifi_on))
+        else:
+            self.label_wifi.setPixmap(QPixmap(self.wifi_off))
 
     def update_log(self):
         if self.simul_state:
@@ -477,16 +534,27 @@ class Dashboard(QMainWindow):
             self.curve_ecg.setData(self.ecg.x_data, self.ecg.buffer+1)
             self.curve_spo2.setData(self.saturation.x_data, self.saturation.get_display_data())
             self.curve_resp.setData(self.respiration.x_data, self.respiration.get_display_data()-1.)
-            self.plot_widget.setXRange([-self.ecg.x_data, self.ecg.x_data])
+            try:
+                self.plot_widget.setXRange([-self.ecg.x_data, self.ecg.x_data])
+            except TypeError:
+                pass
         else:
             pass
 
     def update_data_to_send(self):
+        if len(self.data_to_transfer['hr'])>20:
+            self.data_to_transfer['hr'].pop(0)
         self.data_to_transfer['hr'].append(self.ecg.bpm)
+        if len(self.data_to_transfer['sat'])>20:
+            self.data_to_transfer['sat'].pop(0)
         self.data_to_transfer['sat'].append(self.saturation.spo2_val)
-        self.data_to_transfer['pni']['systo'].append(self.pression.systo)
-        self.data_to_transfer['pni']['diasto'].append(self.pression.diasto)
-        self.data_to_transfer['pni']['pam'].append(self.pression.pam)
+        if len(self.data_to_transfer['temp'])>20:
+            self.data_to_transfer['temp'].pop(0)
+        if len(self.data_to_transfer['resp'])>20:
+            self.data_to_transfer['resp'].pop(0)
+        #self.data_to_transfer['pni']['systo'].append(self.pression.systo)
+        #self.data_to_transfer['pni']['diasto'].append(self.pression.diasto)
+        #self.data_to_transfer['pni']['pam'].append(self.pression.pam)
         self.data_to_transfer['temp'].append(self.temperature.temperature)
         self.data_to_transfer['resp'].append(self.respiration.rpm)
 
@@ -507,22 +575,14 @@ class Dashboard(QMainWindow):
         file_name = os.path.join(PROJECT_ROOT, 'datas', 'base_donnees.txt')
         debut = datetime.now().strftime("the %d/%m/%Y at %H:%M:%S")
         with open(file_name, "w+") as f:
-            for i in range(num_car):
-                f.write('-')
-            f.write("Beginning of transmission at "+debut)
-            for i in range(num_car):
-                f.write('-')
+            f.write('-' * num_car)
             f.write('<HR>')
-            f.write(str(self.ecg._get_data_()[len(self.ecg._get_data_())-1]))
+            f.write(self.ecg_label.text())
             f.write('</HR>')
             f.write('<SPO2>')
-            f.write(str(self.ecg._get_data_()[len(self.ecg._get_data_())-1]))
+            f.write(self.sat_label.text())
             f.write('</SPO2>')
-            for i in range(num_car):
-                f.write('-')
-            f.write("End of transmission")
-            for i in range(num_car):
-                f.write('-')
+            f.write('-' * num_car)
             f.write("\n")
         f.close()
 
