@@ -501,7 +501,6 @@ class Dashboard(QMainWindow):
             self.resp_label.setText(str(f"{self.respiration.rpm}"))
             self.press_moy_value.setText(str(f"{self.pression.pam}"))
             self.hr_in_sat.setText(str(f"{self.ecg.bpm}")+' bpm')
-        self.storage()
         #on met à jour l'icone du wifi
         if self.scanner.connected_to_server:
             self.label_wifi.setPixmap(QPixmap(self.wifi_on))
@@ -522,6 +521,7 @@ class Dashboard(QMainWindow):
                 heart_on_path = os.path.join(PROJECT_ROOT, 'assets', self.heart_on)
                 self.logo_label.setPixmap(QPixmap(heart_on_path))
                 self.state_heart = True
+        self.storage()
 
     def update(self):
         if self.simul_state:
@@ -574,7 +574,7 @@ class Dashboard(QMainWindow):
         num_car = 5
         file_name = os.path.join(PROJECT_ROOT, 'datas', 'base_donnees.txt')
         debut = datetime.now().strftime("the %d/%m/%Y at %H:%M:%S")
-        with open(file_name, "w+") as f:
+        with open(file_name, "a+") as f:
             f.write('-' * num_car)
             f.write('<HR>')
             f.write(self.ecg_label.text())

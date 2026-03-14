@@ -14,7 +14,7 @@ class AdmissionPatient(QDialog):
         self.setWindowTitle('Admission Patient')
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         self.layout = QVBoxLayout()
-        self.resize(450, 350)
+        self.setMinimumSize(800,400)
 
 
         self.patient_list = []
