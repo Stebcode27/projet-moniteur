@@ -53,7 +53,7 @@ class MonitorSplash(QSplashScreen):
                                       Qt.IgnoreAspectRatio,
                                       Qt.SmoothTransformation)
         self.setPixmap(self.pixmap)
-        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.showFullScreen()
 
         marque = "LIFE KEEPER"

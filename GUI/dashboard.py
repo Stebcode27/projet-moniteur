@@ -1,6 +1,8 @@
 import sys
 import os
 
+import numpy as np
+
 # Obtenir le chemin absolu du dossier racine du projet (mon_projet/)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
@@ -11,10 +13,11 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBoxLa
 from PyQt5.QtCore import Qt, QTimer, QSize, QPropertyAnimation
 from PyQt5.QtGui import QIcon, QPixmap, QColor
 from datetime import datetime
-from definitions.templates_params import Ecg, Saturation, Respiration, Pression, Temperature
+from definitions.templates_params import Ecg, Saturation, Respiration, Pression, Temperature, Interface
 from definitions.erreur_seuils import SurveillanceThread
 from GUI.patient_infos import FenetrePatient
 from utilities.preferences import COLOR_THEME, PARAMS_SEUILS
+from utilities.duration import calculate_time_format
 from GUI.label_cliquable import LabelCliquable
 from GUI.configs import ConfigBox
 from GUI.log_widget import LogWidget
@@ -27,17 +30,21 @@ class Dashboard(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.ecg = Ecg()
-        self.saturation = Saturation()
-        self.respiration = Respiration()
-        self.pression = Pression()
-        self.temperature = Temperature()
+        self.ecg = Ecg(self)
+        self.saturation = Saturation(self)
+        self.respiration = Respiration(self)
+        self.pression = Pression(self)
+        self.temperature = Temperature(self)
         self.time_h = None
         self.name_patient = None
         self.date = None
         self.barre_etat = None
         self.timer_infos = None
         self.state_heart = None
+        self.duration_count = 0
+        self.heure_debut = ""
+
+        self.data_from_serial = {}
 
         self.scanner = WifiScannerForServer()
         self.data_to_transfer = {
@@ -59,7 +66,7 @@ class Dashboard(QMainWindow):
 
         self.liste_boutons_cmd = []
 
-        self.simul_state = False
+        self.simul_state, self.next_simul_state = False, False
 
         self.wrong_param = None
 
@@ -93,6 +100,12 @@ class Dashboard(QMainWindow):
         self.thread_surveillance.alerte_detectee.connect(self.gerer_alerte_visuelle)
         self.thread_surveillance.start()
 
+        self.interface_serie = Interface()
+        self.interface_serie.onChanged.connect(self.new_data_from_serial)
+        self.interface_serie.onError.connect(self.error_from_serial)
+        self.interface_serie.onPressionProcessed.connect(self.pression_processed)
+        self.interface_serie.start()
+
     def buildUI(self):
         """Fonction pour la construction du dashboard"""
         layout_top = QHBoxLayout(self.top_app)
@@ -114,9 +127,13 @@ class Dashboard(QMainWindow):
         self.label_wifi = QLabel()
         self.label_wifi.setPixmap(QPixmap(self.wifi_off))
 
+        self.duree_label = QLabel()
+        self.duree_label.setText("Duree de l'examen")
+
         layout_util = QHBoxLayout(self.utilitaires)
         layout_util.addWidget(self.date, stretch=2)
         layout_util.addWidget(self.label_wifi, stretch=2)
+        layout_util.addWidget(self.duree_label, stretch=2)
 
         self.utilitaires.setStyleSheet("color: white; font-size: 12pt;")
 
@@ -166,8 +183,10 @@ class Dashboard(QMainWindow):
         self.conteneur_pression.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
         self.conteneur_saturation = QWidget()
         self.conteneur_saturation.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
-        self.conteneur_resp_temp = QWidget()
-        self.conteneur_resp_temp.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
+        self.conteneur_resp = QWidget()
+        self.conteneur_resp.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
+        self.conteneur_temp = QWidget()
+        self.conteneur_temp.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
         self.conteneur_history = QWidget()
         self.conteneur_history.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
 
@@ -205,7 +224,7 @@ class Dashboard(QMainWindow):
         self.pression_layout.setContentsMargins(0, 0, 0, 0)
         press_unite = QLabel("NIBP (Dias/Sys)")
         press_unite.setAlignment(Qt.AlignLeft)
-        self.press_moy_value = QLabel("__")
+        self.press_moy_value = QLabel("--")
         self.press_moy_value.setStyleSheet("color: white; font-size: 28pt;")
         self.press_moy_value.setAlignment(Qt.AlignRight)
         moy_lab = QLabel("(Moy)")
@@ -239,7 +258,7 @@ class Dashboard(QMainWindow):
         sat_unite.setAlignment(Qt.AlignRight)
         sat_lab.setStyleSheet("color: #FF500A; font-size: 13pt;")
         sat_unite.setStyleSheet("color: #FF500A; font-size: 13pt;")
-        self.sat_label = QLabel("__", self)
+        self.sat_label = QLabel("--", self)
         self.hr_in_sat = QLabel("HR")
         percent_lab = QLabel("%")
         percent_lab.setStyleSheet("color: #FF500A; font-size: 14pt;")
@@ -262,48 +281,68 @@ class Dashboard(QMainWindow):
         self.sat_layout.addLayout(sec_ligne)
         self.sat_layout.addWidget(self.hr_in_sat, alignment=Qt.AlignRight)
 
-        self.temp_layout = QHBoxLayout(self.conteneur_resp_temp)
-        self.temp_layout.setContentsMargins(0, 0, 0, 0)
+        layout_resp_temp = QHBoxLayout()
+#RESPIRATION
+        self.resp_layout = QVBoxLayout(self.conteneur_resp)
+        self.resp_layout.setContentsMargins(0, 0, 0, 0)
         self.resp_label = QLabel("--", self)
-        self.resp_label.setAlignment(Qt.AlignCenter)
+        self.resp_label.setAlignment(Qt.AlignRight)
         self.resp_label.setStyleSheet("color: #DFEE0A; font-size: 40pt;")
-        self.temp_label = QLabel("--", self)
-        self.temp_label.setAlignment(Qt.AlignBottom)
-        self.temp_label.setStyleSheet("color: #2093FF; font-size: 22pt; padding: 15px")
-        resp_lay = QVBoxLayout()
-        temp_lay = QVBoxLayout()
+        resp_ligne1 = QHBoxLayout()
+        resp_ligne2 = QHBoxLayout()
+        param_name = QLabel("RESP")
+        param_name.setStyleSheet("color: #DFEE0A; font-size: 13pt;")
+        param_name.setAlignment(Qt.AlignLeft)
         self.seuil_resp_label = QLabel()
         self.seuil_resp_label.setAlignment(Qt.AlignRight)
         self.seuil_resp_label.setStyleSheet("color: #DFEE0A; font-size: 11pt;")
         self.seuil_resp_label.setText(f"{PARAMS_SEUILS[3]['val_max']}\n{PARAMS_SEUILS[3]['val_min']}")
-        unit_t = QLabel("TEMP")
-        unit_t.setAlignment(Qt.AlignRight)
-        unit_t.setStyleSheet("color: #2093FF; font-size: 13pt;")
-        temp_lay.addWidget(unit_t)
-        temp_lay.addWidget(self.temp_label, alignment=Qt.AlignRight)
-        unite_lay = QHBoxLayout()
-        unit = QLabel("RESP")
-        unit_1 = QLabel("resp/min")
-        unit.setAlignment(Qt.AlignLeft)
-        unit_1.setAlignment(Qt.AlignRight)
-        unit.setStyleSheet("color: #DFEE0A; font-size: 13pt;")
-        unit_1.setStyleSheet("color: #DFEE0A; font-size: 13pt;")
-        unite_lay.addWidget(unit, alignment=Qt.AlignLeft)
-        unite_lay.addWidget(unit_1, alignment=Qt.AlignRight)
-        resp_lay.addLayout(unite_lay)
-        resp_lay.addWidget(self.seuil_resp_label)
-        resp_lay.addWidget(self.resp_label, alignment=Qt.AlignCenter)
-        resp_lay.addWidget(QLabel())
-        temp_lay.addWidget(QLabel())
-        self.temp_layout.addLayout(resp_lay)
-        self.temp_layout.addLayout(temp_lay)
+        resp_ligne1.addWidget(param_name, stretch=1)
+        resp_ligne1.addWidget(self.seuil_resp_label, stretch=2)
+        unit_resp = QLabel("rpm")
+        unit_resp.setStyleSheet("color: #DFEE0A; font-size: 11pt;")
+        unit_resp.setAlignment(Qt.AlignLeft)
+        resp_ligne2.addStretch()
+        resp_ligne2.addWidget(self.resp_label, stretch=1)
+        resp_ligne2.addWidget(unit_resp, stretch=1)
+        resp_ligne2.addStretch()
+        self.resp_layout.addLayout(resp_ligne1)
+        self.resp_layout.addStretch()
+        self.resp_layout.addLayout(resp_ligne2)
+        self.resp_layout.addStretch()
+
+#TEMPERATURE
+        self.temp_layout = QVBoxLayout(self.conteneur_temp)
+        self.temp_layout.setContentsMargins(0, 0, 0, 0)
+        self.temp_label = QLabel("--", self)
+        self.temp_label.setAlignment(Qt.AlignRight)
+        self.temp_label.setStyleSheet("color: #2093FF; font-size: 22pt;")
+        temp_param = QLabel("TEMP")
+        temp_param.setAlignment(Qt.AlignRight)
+        temp_param.setStyleSheet("color: #2093FF; font-size: 13pt;")
+        ligne = QHBoxLayout()
+        unite = QLabel("°C")
+        unite.setAlignment(Qt.AlignLeft)
+        unite.setStyleSheet("color: #2093FF; font-size: 11pt;")
+        ligne.addStretch()
+        ligne.addWidget(self.temp_label, stretch=1)
+        ligne.addWidget(unite, stretch=1)
+        ligne.addStretch()
+        self.temp_layout.addWidget(temp_param)
+        self.temp_layout.addStretch()
+        self.temp_layout.addLayout(ligne)
+        self.temp_layout.addStretch()
+
+
+        layout_resp_temp.addWidget(self.conteneur_resp, stretch=1)
+        layout_resp_temp.addWidget(self.conteneur_temp, stretch=1)
 
         box_layout = QVBoxLayout()
         box_layout.addWidget(self.conteneur_ecg, stretch=3)
         box_layout.addWidget(self.conteneur_saturation, stretch=3)
-        box_layout.addWidget(self.conteneur_resp_temp, stretch=2)
+        box_layout.addLayout(layout_resp_temp, stretch=3)
 
-        self.log_widget = LogWidget()
+        self.log_widget = LogWidget(self)
         history_layout.addWidget(self.log_widget)
 
         self.layout1.addLayout(box_layout, stretch=2)
@@ -357,6 +396,14 @@ class Dashboard(QMainWindow):
 
         self.centralWidget.setLayout(self.layout_app)
 
+        self.ecg.reset_buffer()
+        self.saturation.reset_buffer()
+        self.respiration.reset_buffer()
+
+        self.curve_ecg.setData(self.ecg.x_data, self.ecg.buffer + 0.9)
+        self.curve_spo2.setData(self.saturation.x_data, self.saturation.get_display_data() - 0.35)
+        self.curve_resp.setData(self.respiration.x_data, self.respiration.get_display_data() - 1.25)
+
         self.timer = QTimer()
         self.timer.timeout.connect(self.update)
 
@@ -372,12 +419,43 @@ class Dashboard(QMainWindow):
         self.timer_buffer_tosend = QTimer()
         self.timer_buffer_tosend.timeout.connect(self.update_data_to_send)
 
+        self.timer_temp = QTimer()
+        self.timer_temp.timeout.connect(self.duree_exam)
+
         self.timer_txt.start(1)
         self.timer_heart.start(500)
         self.timer_log.start(1000)
         self.timer_buffer_tosend.start(100)
+        self.timer_temp.start(1000)
+        self.timer.start(self.ecg.update_interval)
+        self.heure_debut = self.date.text()
 
         self.setStyleSheet(f"background-color: {COLOR_THEME['default']['app-color']}; font-family: {COLOR_THEME['default']['font-family']};")
+
+    def new_data_from_serial(self, raw_data):
+        self.data_from_serial = raw_data
+        print(self.data_from_serial)
+        if not self.simul_state:
+            self.ecg.bpm = int(raw_data['ecg'])
+            self.saturation.spo2_val = int(raw_data['sat'])
+            self.respiration.resp_rate = int(raw_data['resp'])
+            self.temperature.temperature = int(raw_data['temp'])
+            self.pression.pam = int(raw_data['pni_moy'])
+            self.pression.diasto = int(raw_data['diastol'])
+            self.pression.systo = int(raw_data['systol'])
+
+            self.ecg_label.setText(str(self.ecg.bpm))
+            self.sat_label.setText(str(self.saturation.spo2_val))
+            self.temp_label.setText(str(self.temperature.temperature))
+            self.resp_label.setText(str(self.respiration.resp_rate))
+            self.press_moy_value.setText(str(self.pression.pam))
+
+    def pression_processed(self):
+        if not self.simul_state:
+            self.log_widget.ajouter_valeur()
+
+    def error_from_serial(self, error):
+        print(error)
 
     def setup_animations(self):
         self.animations = {}
@@ -387,9 +465,8 @@ class Dashboard(QMainWindow):
         self.map_conteneurs = {
             "hr": self.conteneur_ecg,
             "spo2": self.conteneur_saturation,
-            "resp": self.resp_label,
-            "temp": self.temp_label,
-            "pni": self.conteneur_pression
+            "resp": self.conteneur_resp,
+            "temp": self.conteneur_temp,
         }
 
         for key, widget in self.map_conteneurs.items():
@@ -422,22 +499,40 @@ class Dashboard(QMainWindow):
             self.effects[param].setEnabled(False)
 
     def get_infos_patient(self):
-        self.app_infos_patient.show()
-        if self.app_infos_patient.exec_() == QDialog.Accepted:
-            datas = self.app_infos_patient.get_data()
-            patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
-            with open(patient_info_path, 'w+') as patient_file:
-                #patient_file.write("")
-                patient_file.write(datas['nom']);patient_file.write("_");patient_file.write(datas['id']);patient_file.write("_");patient_file.write(str(datas['age']));patient_file.write("_");patient_file.write(datas['sexe']);patient_file.write("_");patient_file.write(str(datas['poids']));patient_file.write("_");patient_file.write(str(datas['taille']));patient_file.write("_");
-                patient_file.write(str(datas['salle'])); patient_file.write("_"); patient_file.write(datas['service'])
-                patient_file.write("\n")
+        if not self.simul_state:
+            self.app_infos_patient.show()
+            if self.app_infos_patient.exec_() == QDialog.Accepted:
+                datas = self.app_infos_patient.get_data()
+                patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
+                with open(patient_info_path, 'w+') as patient_file:
+                    patient_file.write(datas['nom'])
+                    patient_file.write("_")
+                    patient_file.write(datas['id'])
+                    patient_file.write("_")
+                    patient_file.write(str(datas['age']))
+                    patient_file.write("_")
+                    patient_file.write(datas['sexe'])
+                    patient_file.write("_")
+                    patient_file.write(str(datas['poids']))
+                    patient_file.write("_")
+                    patient_file.write(str(datas['taille']))
+                    patient_file.write("_")
+                    patient_file.write(str(datas['salle']))
+                    patient_file.write("_")
+                    patient_file.write(datas['service'])
+                    patient_file.write("_")
+                    patient_file.write(datas['medecin'])
+                    patient_file.write("_")
+                    patient_file.write(self.heure_debut)
 
-            patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
-            with open(patient_info_path, 'r+') as patient_file:
-                line = patient_file.readline()
-                datas = line.split('_')
-                resume_for_lab_patient = f"{datas[0]}\nID. {datas[1]} {datas[6]}. {datas[7]}"
-                self.infos_patient.setText(resume_for_lab_patient)
+                patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
+                with open(patient_info_path, 'r+') as patient_file:
+                    line = patient_file.readline()
+                    datas = line.split('_')
+                    resume_for_lab_patient = f"{datas[0]}\nID. {datas[1]} {datas[6]}. {datas[7]}"
+                    self.infos_patient.setText(resume_for_lab_patient)
+        else:
+            self.app_infos_patient.hide()
 
     def add_patient(self):
         if self.admission_patient.exec_() == QDialog.Accepted:
@@ -459,16 +554,16 @@ class Dashboard(QMainWindow):
         messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         if messagebox.exec_() == QMessageBox.Yes:
             self.scanner.show()
-            self.scanner.set_payload(self.data_to_transfer)
 
     def open_param_box(self):
         self.configbox = ConfigBox()
         if self.configbox.exec_()==QDialog.Accepted:
             if not self.hasFocus():
                 self.simul_state = self.configbox.get_state()
-                self.timer.start(self.ecg.update_interval)
                 self.theme = self.configbox.getThemeSelected()
                 self.repaintUi()
+                if self.next_simul_state and not self.simul_state:
+                    pass
 
     def repaintUi(self):
         if not self.theme:
@@ -478,29 +573,24 @@ class Dashboard(QMainWindow):
         self.conteneur_ecg.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
         self.conteneur_pression.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
         self.conteneur_saturation.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
-        self.conteneur_resp_temp.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
+        self.conteneur_resp.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
+        self.conteneur_temp.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
         self.conteneur_history.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
         self.top_app.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
 
     def update_time(self):
         self.date.setText(datetime.now().strftime("%H:%M:%S"))
-        if not self.alerte_status:
-            if self.simul_state:
-                self.alarm_lab.setText('Mode Démo')
-                self.alarm_lab.setStyleSheet('color: white; font-size: 13pt; background-color: #999950')
-            else:
-                self.alarm_lab.setText('Alarmes')
-                self.alarm_lab.setStyleSheet('color: white; font-size: 13pt; background-color: #0055AA')
 
     def update_txt(self):
         if self.simul_state:
             self.ecg_label.setText(str(f"{self.ecg.bpm}"))
             self.sat_label.setText(str(f"{self.saturation.spo2_val}"))
             self.pni_label.setText(str(f"{self.pression.systo}/{self.pression.diasto}"))
-            self.temp_label.setText(str(f"{self.temperature.temperature}")+" °C")
+            self.temp_label.setText(str(f"{self.temperature.temperature}"))
             self.resp_label.setText(str(f"{self.respiration.rpm}"))
             self.press_moy_value.setText(str(f"{self.pression.pam}"))
             self.hr_in_sat.setText(str(f"{self.ecg.bpm}")+' bpm')
+            self.infos_patient.setText('Mode Démo')
         #on met à jour l'icone du wifi
         if self.scanner.connected_to_server:
             self.label_wifi.setPixmap(QPixmap(self.wifi_on))
@@ -531,15 +621,36 @@ class Dashboard(QMainWindow):
             self.saturation.update_data()
             self.respiration.update_data()
 
-            self.curve_ecg.setData(self.ecg.x_data, self.ecg.buffer+1)
-            self.curve_spo2.setData(self.saturation.x_data, self.saturation.get_display_data())
-            self.curve_resp.setData(self.respiration.x_data, self.respiration.get_display_data()-1.)
+            self.curve_ecg.setData(self.ecg.x_data, self.ecg.buffer+0.9)
+            self.curve_spo2.setData(self.saturation.x_data, self.saturation.get_display_data() - 0.35)
+            self.curve_resp.setData(self.respiration.x_data, self.respiration.get_display_data()-1.25)
             try:
                 self.plot_widget.setXRange([-self.ecg.x_data, self.ecg.x_data])
-            except TypeError:
+            except TypeError as e:
+                #print(f"Erreur de type: {e}")
                 pass
         else:
-            pass
+            try:
+                self.ecg.buffer[self.ecg.ptr] = self.data_from_serial['buffer_ecg']
+                self.respiration.display_buffer[self.respiration.ptr] = self.data_from_serial['buffer_resp']
+                self.saturation.display_buffer[self.saturation.ptr] = self.data_from_serial['buffer_sat']
+            except KeyError as e:
+                print(str(e))
+            #mise à jour
+            gap_size = 30  # Nombre de points à effacer devant
+            for i in range(1, gap_size + 1):
+                idx_to_clearE = (self.ecg.ptr + i) % self.ecg.maxpoint
+                idx_to_clearS = (self.ecg.ptr + i) % self.saturation.maxpoint
+                idx_to_clearR = (self.ecg.ptr + i) % self.respiration.maxpoint
+                self.ecg.buffer[idx_to_clearE] = np.nan  # Efface la vieille donnée
+                self.saturation.display_buffer[idx_to_clearS] = np.nan
+                self.respiration.display_buffer[idx_to_clearR] = np.nan
+            self.ecg.ptr = (self.ecg.ptr + 1) % self.ecg.maxpoint
+            self.saturation.ptr = (self.saturation.ptr + 1) % self.saturation.maxpoint
+            self.respiration.ptr = (self.respiration.ptr + 1) % self.respiration.maxpoint
+            self.curve_ecg.setData(self.ecg.x_data, self.ecg.buffer + 0.9)
+            self.curve_spo2.setData(self.saturation.x_data, self.saturation.get_display_data() - 0.35)
+            self.curve_resp.setData(self.respiration.x_data, self.respiration.get_display_data()-1.25)
 
     def update_data_to_send(self):
         if len(self.data_to_transfer['hr'])>20:
@@ -558,6 +669,14 @@ class Dashboard(QMainWindow):
         self.data_to_transfer['temp'].append(self.temperature.temperature)
         self.data_to_transfer['resp'].append(self.respiration.rpm)
 
+    def duree_exam(self):
+        self.duration_count+=1
+        hours, minutes, seconds = calculate_time_format(self.duration_count)
+        hours = "0" + str(hours) if hours < 10 else str(hours)
+        minutes = "0" + str(minutes) if minutes < 10 else str(minutes)
+        seconds = "0" + str(seconds) if seconds < 10 else str(seconds)
+        self.duree_label.setText(f"{hours}:{minutes}:{seconds}")
+
     def pause(self):
         if not self.pause_state:
             self.timer.stop()
@@ -575,14 +694,38 @@ class Dashboard(QMainWindow):
         file_name = os.path.join(PROJECT_ROOT, 'datas', 'base_donnees.txt')
         debut = datetime.now().strftime("the %d/%m/%Y at %H:%M:%S")
         with open(file_name, "a+") as f:
-            f.write('-' * num_car)
             f.write('<HR>')
-            f.write(self.ecg_label.text())
+            if not self.ecg_label.text()[0] == '-':
+                f.write(self.ecg_label.text())
             f.write('</HR>')
             f.write('<SPO2>')
-            f.write(self.sat_label.text())
+            if not self.sat_label.text()[0] == '-':
+                f.write(self.sat_label.text())
             f.write('</SPO2>')
-            f.write('-' * num_car)
+            f.write('<RESP>')
+            if not self.resp_label.text()[0] == '-':
+                f.write(self.resp_label.text())
+            f.write('</RESP>')
+            f.write('<TEMP>')
+            if not self.temp_label.text()[0] == '-':
+                f.write(self.temp_label.text())
+            f.write('</TEMP>')
+            f.write('<PNI>')
+            if not self.pni_label.text()[0] == '-':
+                f.write('<SYS>')
+                f.write(self.pni_label.text().split("/")[0])
+                f.write('</SYS>')
+                f.write('<DIAS>')
+                f.write(self.pni_label.text().split("/")[1])
+                f.write('</DIAS>')
+                f.write('<PAM>')
+                if not self.press_moy_value.text()[0] == '-':
+                    f.write(self.press_moy_value.text())
+                f.write('</PAM>')
+            f.write('</PNI>')
+            f.write('<TIMESTAMP>')
+            f.write(self.duree_label.text())
+            f.write('</TIMESTAMP>')
             f.write("\n")
         f.close()
 

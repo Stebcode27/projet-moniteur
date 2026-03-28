@@ -18,10 +18,9 @@ class ClavierVisuel(QDialog):
     def __init__(self, target_line_edit=None, text_box=True):
         super().__init__()
         self.setWindowTitle("Clavier Visuel")
-        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)  # Optionnel: Sans barre de titre
-
-        # Le champ de saisie que l'on est en train de remplir (dans la fenêtre fille)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         self.cible = target_line_edit
+        self.set_position()
         self.text_box = text_box
         if self.text_box:
             self.buffer = self.cible.text()  # Buffer pour le texte en cours
@@ -69,8 +68,15 @@ class ClavierVisuel(QDialog):
 
         self.setStyleSheet("font-size: 12pt")
 
+    def set_position(self):
+        point_gauche = self.cible.rect().bottomLeft()
+        point_global = self.cible.mapToGlobal(point_gauche)
+
+        self.move(point_global.x(), point_global.y() + 5)
+
     def set_target(self, new_target):
         self.cible = new_target
+        self.set_position()
         # Déterminer si c'est un champ texte ou numérique
         self.text_box = isinstance(new_target, QLineEdit)
         

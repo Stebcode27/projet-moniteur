@@ -14,6 +14,7 @@ theme = COLOR_THEME['optimized']['container-color']
 class LogWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__()
+        self.parent = parent
         layout = QVBoxLayout(self)
 
         self.log = QPlainTextEdit()
@@ -29,18 +30,10 @@ class LogWidget(QWidget):
         self.log.setMaximumBlockCount(100)
         layout.addWidget(self.log)
 
-    def ajouter_valeur(self, status="Normal"):
+    def ajouter_valeur(self):
         from datetime import datetime
         horodatage = datetime.now().strftime("%H:%M:%S")
-        file = os.path.join(PROJECT_ROOT, 'datas', 'base_donnees.txt')
-        bpm=''
-        with open(file, 'r+') as f:
-            line = f.readline()
-            debut, fin = '<HR>', '</HR>'
-            i, j = line.find(debut)+len(debut), line.find(fin)
-            bpm = float(line[i:j].strip()) * 50
-            bpm = f"{bpm:.2f}"
 
-        message = f"[{horodatage}] ECG: {bpm} | Etat: {status}]"
+        message = f"[{horodatage}] PNI: {self.parent.pression.systo}/{self.parent.pression.diasto} ({self.parent.pression.pam})]"
         self.log.appendPlainText(message)
         self.log.moveCursor(QTextCursor.End)

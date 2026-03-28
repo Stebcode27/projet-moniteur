@@ -20,6 +20,10 @@ class Threshold:
         self.spk = 0.125 * signal + 0.875 * self.spk
         self.update()
 
+    def updateSignalSearchBack(self):
+        self.spk = 0.25 * self.npk + 0.75 * self.spk
+        self.update()
+
 
 class PanTompkinsDetector:
     def __init__(self):
@@ -135,10 +139,16 @@ class PanTompkinsDetector:
 
         # 3. Search-back (si rien trouvé depuis 166% du RR moyen)
         if (self.current_sample_count - self.last_peak_sample) > int(1.66 * self.avg_rr):
-            # Ici on devrait normalement chercher dans le buffer le pic > i2
-            # Pour simplifier et éviter le bug, on abaisse juste un peu le seuil
-            self.threshold.i1 *= 0.75
-            self.threshold.update()
+            if self.threshold.npk > self.threshold.i2:
+                self.count+=1
+                time_since_last = self.current_sample_count - self.last_peak_sample
+                self.updateRR(time_since_last)
+
+                self.threshold.updateSignalSearchBack()
+
+                self.last_peak_sample = self.current_sample_count
+                detected = True
+                bpm = (60 * 360) / self.avg_rr
 
         self.last_integ_val = integrated_val
         return (bpm, detected)

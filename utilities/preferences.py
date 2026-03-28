@@ -5,7 +5,7 @@ COLOR_THEME = {
     'default': {
         'app-color': "black",
         'container-color': 'black',
-        'font-family': 'Arial',
+        'font-family': '-apple-system',
     },
     'optimized': {
         'app-color': 'black',
@@ -22,8 +22,8 @@ COLOR_THEME = {
 PARAMS_SEUILS = [
     {
         'id': 'HR',
-        'val_min': 65,
-        'val_max': 120,
+        'val_min': 45,
+        'val_max': 100,
     },{
         'id': 'SPO2',
         'val_min': 92,
@@ -50,8 +50,8 @@ PARAMS_SEUILS = [
         'val_max': 80,
     },{
         'id': 'TEMP',
-        'val_min': 30,
-        'val_max': 42,
+        'val_min': 35,
+        'val_max': 38.5,
     }
 ]
 

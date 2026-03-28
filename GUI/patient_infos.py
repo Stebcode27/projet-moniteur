@@ -51,12 +51,16 @@ class FenetrePatient(QDialog):
         #self.liste_champ.append(self.champ_sexe)
 
         self.champ_service = QComboBox()
-        self.champ_service.addItems(['Neonatalogie', 'Pédiatrie', 'Urgences', 'Bloc Operatoire'])
+        self.champ_service.addItems(['Neonatalogie', 'Réanimation', 'Urgences', 'Bloc Operatoire'])
         self.champ_service.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
 
         self.champ_salle = QLineEdit()
         self.champ_salle.setPlaceholderText("ex: Salle 2")
         self.champ_salle.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
+
+        self.champ_medecin = QLineEdit()
+        self.champ_medecin.setPlaceholderText("ex: Dr Teuga")
+        self.champ_medecin.setStyleSheet("padding: 5px; border-radius: 5px; border: 0.5px solid white;")
 
         form_identite.addRow("Nom complet :", self.champ_nom)
         form_identite.addRow("ID Patient :", self.champ_id)
@@ -64,6 +68,7 @@ class FenetrePatient(QDialog):
         form_identite.addRow("Sexe :", self.champ_sexe)
         form_identite.addRow("Salle :", self.champ_salle)
         form_identite.addRow("Service :", self.champ_service)
+        form_identite.addRow("Medecin :", self.champ_medecin)
         
         self.groupe_identite.setLayout(form_identite)
         main_layout.addWidget(self.groupe_identite, stretch=2)
@@ -93,7 +98,7 @@ class FenetrePatient(QDialog):
         self.boutons.accepted.connect(self.accept)
         self.boutons.rejected.connect(self.reject)
 
-        self.all_champs = [self.champ_nom, self.champ_id, self.champ_salle]
+        self.all_champs = [self.champ_nom, self.champ_id, self.champ_salle, self.champ_medecin]
         for champ in self.all_champs:
             champ.installEventFilter(self)
 
@@ -114,8 +119,6 @@ class FenetrePatient(QDialog):
         else:
             self.clavier.set_target(target_widget)
 
-        # On affiche le clavier en mode non-modal pour ne pas bloquer l'appli
-        # ou en exec_() si vous voulez bloquer le reste.
         self.clavier.exec_()
 
     def buildScreen(self):
@@ -144,7 +147,8 @@ class FenetrePatient(QDialog):
             "poids": self.champ_poids.value(),
             "taille": self.champ_taille.value(),
             "salle": self.champ_salle.text(),
-            "service": self.champ_service.currentText()
+            "service": self.champ_service.currentText(),
+            "medecin": self.champ_medecin.text()
         }
 
 if __name__ == "__main__":
