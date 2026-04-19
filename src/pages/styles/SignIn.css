@@ -1,0 +1,65 @@
+.sign-container{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f0f2f5; /* Fond clair pour contraster avec la sidebar */
+}
+
+.inscription-form {
+  background: white;
+  padding-top: 20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-bottom: 5px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  width: 100%;
+  height: 90vh;
+  max-width: 400px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.inscription-form input{
+    width: 80%;
+    height: 45px;
+    padding: 5px;
+    margin-left: 10%;
+    margin-right: 10%;
+    margin-bottom: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.inscription-form select{
+    width: 80%;
+    height: 55px;
+    padding: 5px;
+    margin-left: 10%;
+    margin-right: 10%;
+    margin-bottom: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.inscription-form .sign-button{
+    width: 80%;
+    height: 45px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background-color: #61dafb;
+    border: none;
+    border-radius: 4px;
+    color: #20232a;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 10px;
+}
+.inscription-form .sign-button:hover{
+    background-color: #4fa8c7;
+}

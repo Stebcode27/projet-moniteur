@@ -1,0 +1,28 @@
+.footer-container{
+    background-color: #343030c6;
+    padding: 25px;
+    padding-bottom: 0;
+    color: white;
+    font-size: 15px;
+    text-align: center;
+    margin-top: 50px;
+}
+
+.footer-container a{
+    color: rgb(183, 234, 252);
+    text-decoration: none;
+}
+
+.logo-container{
+    width: 75px;
+    height: 75px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.logo-container img{
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    cursor: pointer;
+}

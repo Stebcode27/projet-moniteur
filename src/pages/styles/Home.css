@@ -1,0 +1,187 @@
+/* 1. Conteneur principal */
+.home-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  overflow-x: hidden;
+  /*padding-top: 60px; /* Espace pour ne pas coller à la Topbar */
+  position: relative;
+}
+.home-wrapper .entete{
+  width: 100%;
+  background: linear-gradient(180deg, #068ee8 0%, #ffffff 100%);
+  display: flex;
+  justify-content: space-between;
+  border-bottom-left-radius: 100px;
+  border-bottom-right-radius: 100px;
+}
+.home-wrapper .entete .left-section{
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+}
+/* 2. Section Texte (Titre) */
+.hero-text {
+  text-align: center;
+  z-index: 10; /* Force le texte à être au premier plan */
+  max-width: 800px;
+  margin-bottom: 40px;
+}
+
+.hero-text h1 {
+  font-size: 3.5rem;
+  color: #20232a;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -1px;
+}
+
+/* 3. La barre de recherche (Style Doctolib) */
+.search-container {
+  display: flex;
+  background: white;
+  border-radius: 50px;
+  padding: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 700px;
+  z-index: 10;
+  border: 1px solid #eee;
+  margin-bottom: 10px;
+  justify-content: space-between;
+}
+
+.search-container input {
+  width: 100%;
+  border: none;
+  padding: 15px;
+  font-size: 1.1rem;
+  outline: none;
+  border-radius: 50px;
+}
+
+.search-container button {
+  background-color: #005fce; /* Bleu Doctolib */
+  color: white;
+  border: none;
+  padding: 12px 35px;
+  border-radius: 40px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.search-container button:hover {
+  background-color: #00469b;
+}
+
+/* 4. Section Image et Forme Bleue (Le "Blob") */
+.hero-image-section {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}
+
+/* La forme bleue arrondie en fond */
+.blue-shape {
+  position: absolute;
+  width: 650px;
+  height: 450px;
+  background: #ffffff;
+  opacity: 0.5;
+  /* Forme organique asymétrique */
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+  z-index: 1; /* Derrière l'illustration */
+  animation: morph 5s ease-in-out infinite alternate;
+}
+
+/* L'illustration (ton image d'échographie) */
+.doctor-illustration {
+  position: relative;
+  z-index: 2; /* Devant la forme bleue */
+  width: 100%;
+  max-width: 550px;
+  height: auto;
+  filter: drop-shadow(0 20px 30px rgba(0,0,0,0.1));
+}
+
+/* 5. Animation de la forme pour la rendre "vivante" */
+@keyframes morph {
+  0% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+  100% { border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%; }
+}
+
+/* Responsive : On réduit la taille sur petit écran */
+@media (max-width: 768px) {
+  .hero-text h1 { font-size: 2.2rem; }
+  .blue-shape { width: 300px; height: 300px; }
+  .doctor-illustration { max-width: 350px; }
+}
+
+.salutation h2{
+  font-size: 2rem;
+}
+
+.cards-section {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.section-option{
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.section-option .option{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+  width: 90%;
+  border: 0;
+  margin-left: 5%;
+  margin-right: 5%;
+  margin-bottom: 100px;
+  font-size: 20px;
+}
+.section-option .option:hover{
+  transition: all 1s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.section-option .option .option-top{
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  margin-bottom: 10px;  
+}
+.section-option .option .option-top .icon-section{
+  width: 70%;
+  height: 70%;
+  margin: 15%;
+}
+.section-option .option .option-contenu{
+  padding: 10px;
+}
+.section-option .option .option-bottom button{
+  justify-content: center;
+  width: 200px;
+  padding: 10px;
+  background-color: #005fce;
+  border: 0;
+  border-radius: 1px;
+  color: white;
+}
+
+.section-option .option .option-bottom button:hover{
+  background-color: #00469b;
+  cursor: pointer;
+}
