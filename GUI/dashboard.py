@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBoxLa
 from PyQt5.QtCore import Qt, QTimer, QSize, QPropertyAnimation
 from PyQt5.QtGui import QIcon, QPixmap, QColor
 from datetime import datetime
-from definitions.templates_params import Ecg, Saturation, Respiration, Pression, Temperature, Interface
+from definitions.templates_params import Ecg, Saturation, Respiration, Pression, Temperature, Interface, Alarm, NIBP
 from definitions.erreur_seuils import SurveillanceThread
 from GUI.patient_infos import FenetrePatient
 from utilities.preferences import COLOR_THEME, PARAMS_SEUILS
@@ -23,6 +23,19 @@ from GUI.configs import ConfigBox
 from GUI.log_widget import LogWidget
 from GUI.admission_patient import AdmissionPatient
 from utilities.scan_trans import WifiScannerForServer
+from utilities.duration import serialize_data_for_transmission
+from utilities.log_utils import add_new_log_text
+
+def resource_path(relative_path):
+    """ Récupère le chemin absolu vers la ressource, compatible PyInstaller """
+    if hasattr(sys, '_MEIPASS'):
+        # Mode Production (.exe) : PyInstaller extrait tout directement dans sys._MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+
+    # Mode Développement (PyCharm) : On garde ta logique PROJECT_ROOT actuelle
+    # 'dirname(__file__), ".."' permet de remonter au dossier racine du projet
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    return os.path.join(PROJECT_ROOT, relative_path)
 
 class Dashboard(QMainWindow):
 
@@ -46,31 +59,24 @@ class Dashboard(QMainWindow):
 
         self.data_from_serial = {}
 
-        self.scanner = WifiScannerForServer()
-        self.data_to_transfer = {
-            'hr': [],
-            'sat': [],
-            'pni': {
-                'systo': [],
-                'diasto': [],
-                'pam': []
-            },
-            'temp': [],
-            'resp': []
-        }
+        self.scanner = WifiScannerForServer(parent=self)
+
         self.alerte_status = False
 
         self.status_saved = False
 
         self.pause_state = False
+        self.alarm_enabled = False
 
         self.liste_boutons_cmd = []
+
+        self.count_enregistrement = 10
 
         self.simul_state, self.next_simul_state = False, False
 
         self.wrong_param = None
 
-        self.heart_on, self.heart_off = "heart_on.png", "heart_off.png"
+        self.heart_on, self.heart_off = "assets/heart_on.png", "assets/heart_off.png"
         self.state_heart = True
 
         self.top_app = QWidget()
@@ -80,14 +86,14 @@ class Dashboard(QMainWindow):
 
         self.app_infos_patient = FenetrePatient()
 
-        self.admission_patient = AdmissionPatient()
+        self.admission_patient = AdmissionPatient(self)
 
         self.error_modal_app = None
         self.configbox = None
 
         self.theme = None
-        self.wifi_on = os.path.join(PROJECT_ROOT, 'assets', 'wifi_on.png')
-        self.wifi_off = os.path.join(PROJECT_ROOT, 'assets', 'wifi_off.png')
+        self.wifi_on = resource_path("assets/wifi_on.png")
+        self.wifi_off = resource_path("assets/wifi_off.png")
 
         self.setWindowTitle("Moniteur")
         self.setGeometry(10, 10, 800, 400)
@@ -103,15 +109,17 @@ class Dashboard(QMainWindow):
         self.interface_serie = Interface()
         self.interface_serie.onChanged.connect(self.new_data_from_serial)
         self.interface_serie.onError.connect(self.error_from_serial)
-        self.interface_serie.onPressionProcessed.connect(self.pression_processed)
         self.interface_serie.start()
+
+        #On vide les fichiers de base de donnees pour faire entrer les donnees du nouveau patient à l'ouverture du programme
+        self.reset_patient_session()
 
     def buildUI(self):
         """Fonction pour la construction du dashboard"""
         layout_top = QHBoxLayout(self.top_app)
         self.top_app.setStyleSheet(f"background-color: {self.theme}; border-radius: 20px;")
 
-        self.infos_patient = LabelCliquable("Informations patient")
+        self.infos_patient = LabelCliquable("Patient")
         self.infos_patient.setStyleSheet("color: white; font-size: 14pt;")
         self.infos_patient.setAlignment(Qt.AlignLeft)
         self.infos_patient.clique.connect(self.get_infos_patient)
@@ -143,8 +151,14 @@ class Dashboard(QMainWindow):
 
         self.layout_app.addWidget(self.top_app, stretch=1)
 
-        txt_buttons = ["Silence", "Pause", "Démarrer PNI", "Enregistrer", "Patient", "Menu"]
-        icons_buttons = [os.path.join(PROJECT_ROOT, 'assets', 'silence.png'), os.path.join(PROJECT_ROOT, 'assets', 'pause.png'), os.path.join(PROJECT_ROOT, 'assets', 'pni.png'), os.path.join(PROJECT_ROOT, 'assets', 'save.png'), os.path.join(PROJECT_ROOT, 'assets', 'patient.png'), os.path.join(PROJECT_ROOT, 'assets', 'menu.png')]
+        txt_buttons = ["Silence", "Pause", "Démarrer PNI", "Enregistrer", "Historique", "Menu"]
+        icons_buttons = [resource_path("assets/silence.png"),
+                         resource_path("assets/pause.png"),
+                         resource_path("assets/pni.png"),
+                         resource_path("assets/save.png"),
+                         resource_path("assets/patient.png"),
+                         resource_path("assets/menu.png")
+                        ]
 
         layout_bottom = QHBoxLayout(self.bottom_app)
 
@@ -158,10 +172,10 @@ class Dashboard(QMainWindow):
         for i in range(len(self.liste_boutons_cmd)):
             icon = QIcon(icons_buttons[i])
             self.liste_boutons_cmd[i].setIcon(icon)
-            self.liste_boutons_cmd[i].setIconSize(QSize(75, 75))
+            self.liste_boutons_cmd[i].setIconSize(QSize(80, 80))
 
         for button in self.liste_boutons_cmd:
-            if button.text() == "Patient":
+            if button.text() == "Historique":
                 button.clicked.connect(self.add_patient)
             elif button.text() == "Menu":
                 button.clicked.connect(self.open_param_box)
@@ -169,6 +183,10 @@ class Dashboard(QMainWindow):
                 button.clicked.connect(self.pause)
             elif button.text() == "Enregistrer":
                 button.clicked.connect(self.start_transfert)
+            elif button.text() == "Démarrer PNI":
+                button.clicked.connect(self.start_pression)
+
+        self.liste_boutons_cmd[0].clicked.connect(self.modify_style_silence)
 
         self.time_h = QTimer()
         self.time_h.timeout.connect(self.update_time)
@@ -178,23 +196,23 @@ class Dashboard(QMainWindow):
 
         #conteneurs pour les paramètres
         self.conteneur_ecg = QWidget()
-        self.conteneur_ecg.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
+        self.conteneur_ecg.setStyleSheet(f"background-color: {COLOR_THEME['Default']['container-color']}; border-radius: 20px;")
         self.conteneur_pression = QWidget()
-        self.conteneur_pression.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
+        self.conteneur_pression.setStyleSheet(f"background-color: {COLOR_THEME['Default']['container-color']}; border-radius: 20px;")
         self.conteneur_saturation = QWidget()
-        self.conteneur_saturation.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
+        self.conteneur_saturation.setStyleSheet(f"background-color: {COLOR_THEME['Default']['container-color']}; border-radius: 20px;")
         self.conteneur_resp = QWidget()
-        self.conteneur_resp.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
+        self.conteneur_resp.setStyleSheet(f"background-color: {COLOR_THEME['Default']['container-color']}; border-radius: 20px;")
         self.conteneur_temp = QWidget()
-        self.conteneur_temp.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
+        self.conteneur_temp.setStyleSheet(f"background-color: {COLOR_THEME['Default']['container-color']}; border-radius: 20px;")
         self.conteneur_history = QWidget()
-        self.conteneur_history.setStyleSheet(f"background-color: {COLOR_THEME['default']['container-color']}; border-radius: 20px;")
+        self.conteneur_history.setStyleSheet(f"background-color: {COLOR_THEME['Default']['container-color']}; border-radius: 20px;")
 
         history_layout = QVBoxLayout(self.conteneur_history)
 
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        heart_on_path = os.path.join(PROJECT_ROOT, 'assets', self.heart_on)
+        heart_on_path = resource_path(self.heart_on)
         self.logo_label.setPixmap(QPixmap(heart_on_path))
         self.seuil_hr_label = QLabel()
         self.seuil_hr_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -282,7 +300,7 @@ class Dashboard(QMainWindow):
         self.sat_layout.addWidget(self.hr_in_sat, alignment=Qt.AlignRight)
 
         layout_resp_temp = QHBoxLayout()
-#RESPIRATION
+        #RESPIRATION
         self.resp_layout = QVBoxLayout(self.conteneur_resp)
         self.resp_layout.setContentsMargins(0, 0, 0, 0)
         self.resp_label = QLabel("--", self)
@@ -311,7 +329,7 @@ class Dashboard(QMainWindow):
         self.resp_layout.addLayout(resp_ligne2)
         self.resp_layout.addStretch()
 
-#TEMPERATURE
+        #TEMPERATURE
         self.temp_layout = QVBoxLayout(self.conteneur_temp)
         self.temp_layout.setContentsMargins(0, 0, 0, 0)
         self.temp_label = QLabel("--", self)
@@ -351,7 +369,7 @@ class Dashboard(QMainWindow):
         self.setCentralWidget(self.centralWidget)
 
         self.plot_widget = pg.PlotWidget()
-        bg_color = COLOR_THEME['default']['container-color']
+        bg_color = COLOR_THEME['Default']['container-color']
         self.plot_widget.setBackground(background=bg_color)
         self.plot_widget.showGrid(x=False, y=False)
         self.plot_widget.setYRange(-1.5, 1.5)
@@ -375,9 +393,9 @@ class Dashboard(QMainWindow):
             label.setPos(self.ecg.x_data[0], self.ecg.buffer[0])
             self.plot_widget.addItem(label)
 
-        self.curve_resp = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=3))
-        self.curve_ecg = self.plot_widget.plot(pen=pg.mkPen(color='lime', width=3))
-        self.curve_spo2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=3))
+        self.curve_resp = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=4))
+        self.curve_ecg = self.plot_widget.plot(pen=pg.mkPen(color='lime', width=4))
+        self.curve_spo2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=4))
 
         right_layout = QVBoxLayout()
         right_layout.addWidget(self.plot_widget, stretch=6)
@@ -416,46 +434,55 @@ class Dashboard(QMainWindow):
         self.timer_log = QTimer()
         self.timer_log.timeout.connect(self.update_log)
 
-        self.timer_buffer_tosend = QTimer()
-        self.timer_buffer_tosend.timeout.connect(self.update_data_to_send)
-
         self.timer_temp = QTimer()
         self.timer_temp.timeout.connect(self.duree_exam)
 
         self.timer_txt.start(1)
         self.timer_heart.start(500)
         self.timer_log.start(1000)
-        self.timer_buffer_tosend.start(100)
         self.timer_temp.start(1000)
         self.timer.start(self.ecg.update_interval)
         self.heure_debut = self.date.text()
 
-        self.setStyleSheet(f"background-color: {COLOR_THEME['default']['app-color']}; font-family: {COLOR_THEME['default']['font-family']};")
+        self.setStyleSheet(f"background-color: {COLOR_THEME['Default']['app-color']}; font-family: {COLOR_THEME['Default']['font-family']};")
 
     def new_data_from_serial(self, raw_data):
         self.data_from_serial = raw_data
-        print(self.data_from_serial)
         if not self.simul_state:
             self.ecg.bpm = int(raw_data['ecg'])
             self.saturation.spo2_val = int(raw_data['sat'])
             self.respiration.resp_rate = int(raw_data['resp'])
             self.temperature.temperature = int(raw_data['temp'])
-            self.pression.pam = int(raw_data['pni_moy'])
-            self.pression.diasto = int(raw_data['diastol'])
-            self.pression.systo = int(raw_data['systol'])
+            if int(raw_data['pni_moy']):
+                self.pression.pam = int(raw_data['pni_moy'])
+                self.pression.diasto = int(raw_data['diastol'])
+                self.pression.systo = int(raw_data['systol'])
+                self.pni_label.setText(str(self.pression.systo)+'/'+str(self.pression.diasto))
+                self.press_moy_value.setText(str(self.pression.pam))
+            if not self.pause_state:
+                self.ecg_label.setText(str(self.ecg.bpm))
+                self.sat_label.setText(str(self.saturation.spo2_val))
+                self.temp_label.setText(str(self.temperature.temperature))
+                self.resp_label.setText(str(self.respiration.resp_rate))
 
-            self.ecg_label.setText(str(self.ecg.bpm))
-            self.sat_label.setText(str(self.saturation.spo2_val))
-            self.temp_label.setText(str(self.temperature.temperature))
-            self.resp_label.setText(str(self.respiration.resp_rate))
-            self.press_moy_value.setText(str(self.pression.pam))
-
-    def pression_processed(self):
+    def process_pression(self):
         if not self.simul_state:
             self.log_widget.ajouter_valeur()
 
+            for button in self.liste_boutons_cmd:
+                if button.text()=="Démarrer PNI":
+                    button.setEnabled(True)
+                    button.setStyleSheet("color: white; font-size: 16pt; padding: 10px; background-color: #0055AA; border-radius: 20px;")
+                    break
+
     def error_from_serial(self, error):
-        print(error)
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Critical)
+        box.setWindowTitle("Erreur")
+        box.setText(f"Erreur au niveau des modules electroniques. La réception des données pose problème!!\n\nDétails: \t{error}")
+        box.setStandardButtons(QMessageBox.Ok)
+        box.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+        box.exec_()
 
     def setup_animations(self):
         self.animations = {}
@@ -485,8 +512,9 @@ class Dashboard(QMainWindow):
             self.animations[key] = anim
 
     def gerer_alerte_visuelle(self, param, en_alerte):
-        if en_alerte:
+        if en_alerte and not self.pause_state:
             self.alerte_status = True
+            self.interface_serie.setAlarm(alm_code=Alarm.ALARM_CRITICAL)
             if not self.animations[param].state() == QPropertyAnimation.Running:
                 self.effects[param].setEnabled(True)
                 self.animations[param].start()
@@ -497,13 +525,14 @@ class Dashboard(QMainWindow):
             self.alerte_status = False
             self.animations[param].stop()
             self.effects[param].setEnabled(False)
+            self.interface_serie.setAlarm(alm_code=Alarm.ALARM_NONE)
 
     def get_infos_patient(self):
         if not self.simul_state:
             self.app_infos_patient.show()
             if self.app_infos_patient.exec_() == QDialog.Accepted:
                 datas = self.app_infos_patient.get_data()
-                patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
+                patient_info_path = resource_path("datas/patient_infos.txt")
                 with open(patient_info_path, 'w+') as patient_file:
                     patient_file.write(datas['nom'])
                     patient_file.write("_")
@@ -525,7 +554,7 @@ class Dashboard(QMainWindow):
                     patient_file.write("_")
                     patient_file.write(self.heure_debut)
 
-                patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
+                patient_info_path = resource_path("datas/patient_infos.txt")
                 with open(patient_info_path, 'r+') as patient_file:
                     line = patient_file.readline()
                     datas = line.split('_')
@@ -536,14 +565,35 @@ class Dashboard(QMainWindow):
 
     def add_patient(self):
         if self.admission_patient.exec_() == QDialog.Accepted:
-            messagebox = QMessageBox()
-            messagebox.setIcon(QMessageBox.Information)
-            messagebox.setText("Enregistrez d'abord les données du patient actuel!")
-            messagebox.setStandardButtons(QMessageBox.Yes)
-            messagebox.setDefaultButton(QMessageBox.Yes)
-            messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
-            if messagebox.exec_() == QDialog.Accepted:
-                self.status_saved = True
+            pass
+            #else:
+             #   if messagebox.exec_() == QMessageBox.Yes:
+                    #self.status_saved = True
+              #      self.start_transfert()
+
+    def reset_patient_session(self):
+        #On efface le contenu des fichiers de base de données pour réinitialiser la session
+        patient_info_path = os.path.join(PROJECT_ROOT, 'datas', 'patient_infos.txt')
+        with open(patient_info_path, 'w+') as patient_file:
+            patient_file.write('')
+
+        session_datas_path = os.path.join(PROJECT_ROOT, 'datas', 'base_donnees.txt')
+        with open(session_datas_path, 'w+') as session_datas_file:
+            session_datas_file.write('')
+
+        self.count_enregistrement = 0
+        self.status_saved = False
+        self.pause_state = False
+        self.simul_state = False
+        self.alerte_status = False
+        self.next_simul_state = False
+
+        #arret de tous les timers pour la simulation
+        #self.timer.stop()
+        #self.timer_txt.stop()
+        #self.timer_heart.stop()
+        #self.timer_log.stop()
+        #self.timer_temp.stop()
 
     def start_transfert(self):
         messagebox = QMessageBox()
@@ -553,7 +603,22 @@ class Dashboard(QMainWindow):
         messagebox.setDefaultButton(QMessageBox.Yes)
         messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         if messagebox.exec_() == QMessageBox.Yes:
-            self.scanner.show()
+            if self.infos_patient.text() == "Informations patient":
+                self.scanner.set_is_patient(False)
+            else:
+                self.scanner.set_is_patient(True)
+            self.scanner.exec_()
+            self.scanner.set_payload(payload=serialize_data_for_transmission())
+
+    def start_pression(self):
+        self.interface_serie.alarm_code = Alarm.ALARM_NONE
+        for button in self.liste_boutons_cmd:
+            if button.text() == "Démarrer PNI":
+                if self.interface_serie.alarm_code == Alarm.ALARM_NONE:
+                    self.mesure_label.setText("Lancement en cours...")
+                    self.interface_serie.send_code()
+                button.setStyleSheet("color: white; font-size: 16pt; padding: 10px; background-color: #D0A50A; border-radius: 20px;")
+                break
 
     def open_param_box(self):
         self.configbox = ConfigBox()
@@ -569,7 +634,7 @@ class Dashboard(QMainWindow):
         if not self.theme:
             return
         self.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['app-color']}; font-family: {COLOR_THEME[self.theme]['font-family']};")
-        #self.plot_widget.setBackground(f"{COLOR_THEME[self.theme]['container-color']};")
+        self.plot_widget.setBackground(f"{COLOR_THEME[self.theme]['container-color']}")
         self.conteneur_ecg.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
         self.conteneur_pression.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
         self.conteneur_saturation.setStyleSheet(f"background-color: {COLOR_THEME[self.theme]['container-color']}; border-radius: 20px;")
@@ -586,10 +651,10 @@ class Dashboard(QMainWindow):
             self.ecg_label.setText(str(f"{self.ecg.bpm}"))
             self.sat_label.setText(str(f"{self.saturation.spo2_val}"))
             self.pni_label.setText(str(f"{self.pression.systo}/{self.pression.diasto}"))
-            self.temp_label.setText(str(f"{self.temperature.temperature}"))
+            self.temp_label.setText(str(f"{self.temperature.value}"))
             self.resp_label.setText(str(f"{self.respiration.rpm}"))
             self.press_moy_value.setText(str(f"{self.pression.pam}"))
-            self.hr_in_sat.setText(str(f"{self.ecg.bpm}")+' bpm')
+            self.hr_in_sat.setText(str(f"{self.saturation.bpm}")+' bpm')
             self.infos_patient.setText('Mode Démo')
         #on met à jour l'icone du wifi
         if self.scanner.connected_to_server:
@@ -597,20 +662,41 @@ class Dashboard(QMainWindow):
         else:
             self.label_wifi.setPixmap(QPixmap(self.wifi_off))
 
+        if self.interface_serie.nibp_status == NIBP.NIBP_DEFLATING:
+            for button in self.liste_boutons_cmd:
+                if button.text() == "Démarrer PNI":
+                    button.setStyleSheet("color: white; font-size: 16pt; padding: 10px; background-color: #D0A50A; border-radius: 20px;")
+                    button.setEnabled(True)
+                    self.interface_serie.setNIBP(NIBP.NIBP_IDLE)
+                    break
+
     def update_log(self):
-        if self.simul_state:
+        if self.simul_state and not self.pause_state:
             self.log_widget.ajouter_valeur()
 
     def update_logo(self):
         if self.simul_state:
+            #En cas de provenance des donnees de la pert du systeme de simulation du moniteur
             if self.state_heart:
-                heart_off_path = os.path.join(PROJECT_ROOT, 'assets', self.heart_off)
+                heart_off_path = resource_path(self.heart_off)
                 self.logo_label.setPixmap(QPixmap(heart_off_path))
                 self.state_heart = False
             else:
-                heart_on_path = os.path.join(PROJECT_ROOT, 'assets', self.heart_on)
+                heart_on_path = resource_path(self.heart_on)
                 self.logo_label.setPixmap(QPixmap(heart_on_path))
                 self.state_heart = True
+        else:
+            #En cas de provenance des donnees de la part de l'interface serie
+            if self.interface_serie.isData:
+                if self.state_heart:
+                    heart_off_path = resource_path(self.heart_off)
+                    self.logo_label.setPixmap(QPixmap(heart_off_path))
+                    self.state_heart = False
+                else:
+                    heart_on_path = resource_path(self.heart_on)
+                    self.logo_label.setPixmap(QPixmap(heart_on_path))
+                    self.state_heart = True
+
         self.storage()
 
     def update(self):
@@ -635,7 +721,9 @@ class Dashboard(QMainWindow):
                 self.respiration.display_buffer[self.respiration.ptr] = self.data_from_serial['buffer_resp']
                 self.saturation.display_buffer[self.saturation.ptr] = self.data_from_serial['buffer_sat']
             except KeyError as e:
-                print(str(e))
+                self.ecg.buffer[self.ecg.ptr] = 0
+                self.respiration.display_buffer[self.respiration.ptr] = 0
+                self.saturation.display_buffer[self.saturation.ptr] = 0
             #mise à jour
             gap_size = 30  # Nombre de points à effacer devant
             for i in range(1, gap_size + 1):
@@ -652,23 +740,6 @@ class Dashboard(QMainWindow):
             self.curve_spo2.setData(self.saturation.x_data, self.saturation.get_display_data() - 0.35)
             self.curve_resp.setData(self.respiration.x_data, self.respiration.get_display_data()-1.25)
 
-    def update_data_to_send(self):
-        if len(self.data_to_transfer['hr'])>20:
-            self.data_to_transfer['hr'].pop(0)
-        self.data_to_transfer['hr'].append(self.ecg.bpm)
-        if len(self.data_to_transfer['sat'])>20:
-            self.data_to_transfer['sat'].pop(0)
-        self.data_to_transfer['sat'].append(self.saturation.spo2_val)
-        if len(self.data_to_transfer['temp'])>20:
-            self.data_to_transfer['temp'].pop(0)
-        if len(self.data_to_transfer['resp'])>20:
-            self.data_to_transfer['resp'].pop(0)
-        #self.data_to_transfer['pni']['systo'].append(self.pression.systo)
-        #self.data_to_transfer['pni']['diasto'].append(self.pression.diasto)
-        #self.data_to_transfer['pni']['pam'].append(self.pression.pam)
-        self.data_to_transfer['temp'].append(self.temperature.temperature)
-        self.data_to_transfer['resp'].append(self.respiration.rpm)
-
     def duree_exam(self):
         self.duration_count+=1
         hours, minutes, seconds = calculate_time_format(self.duration_count)
@@ -682,16 +753,26 @@ class Dashboard(QMainWindow):
             self.timer.stop()
             self.timer_heart.stop()
             self.timer_txt.stop()
+            self.liste_boutons_cmd[1].setStyleSheet("color: white; font-size: 16pt; padding: 10px; background-color: #D0A50A; border-radius: 20px;")
             self.pause_state = True
         else:
             self.timer.start()
             self.timer_heart.start()
             self.timer_txt.start()
+            self.liste_boutons_cmd[1].setStyleSheet("color: white; font-size: 16pt; padding: 10px; background-color: #0055AA; border-radius: 20px;")
             self.pause_state = False
+
+    def modify_style_silence(self):
+        if not self.alarm_enabled:
+            self.liste_boutons_cmd[0].setStyleSheet("color: white; font-size: 16pt; padding: 10px; background-color: #D0A50A; border-radius: 20px;")
+            self.alarm_enabled = True
+        else:
+            self.liste_boutons_cmd[0].setStyleSheet("color: white; font-size: 16pt; padding: 10px; background-color: #0055AA; border-radius: 20px;")
+            self.alarm_enabled = False
 
     def storage(self):
         num_car = 5
-        file_name = os.path.join(PROJECT_ROOT, 'datas', 'base_donnees.txt')
+        file_name = resource_path("datas/base_donnees.txt")
         debut = datetime.now().strftime("the %d/%m/%Y at %H:%M:%S")
         with open(file_name, "a+") as f:
             f.write('<HR>')

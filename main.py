@@ -1,5 +1,4 @@
 """Ouverture du programme"""
-
 import sys
 import os
 
@@ -11,21 +10,22 @@ from GUI.dashboard import Dashboard
 from GUI.splash_protocol import HandShakeThread, MonitorSplash
 from PyQt5.QtWidgets import QApplication
 
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    return os.path.join(PROJECT_ROOT, relative_path)
+
+def main():
+    dashboard = Dashboard()
+    dashboard.showFullScreen()
+
 if __name__=='__main__':
     app = QApplication(sys.argv)
 
     splash = MonitorSplash()
+    splash.handshaker.connection_established.connect(main)
     splash.show()
-
-    def main():
-        dashboard = Dashboard()
-        dashboard.showFullScreen()
-        splash.close()
-
-    comm_protocol = HandShakeThread()
-    comm_protocol.connection_established.connect(main)
-    comm_protocol.progression.connect(splash.update_progress)
-    comm_protocol.error_occured.connect(lambda msg: print(f"Alerte: {msg}"))
-    comm_protocol.start()
 
     sys.exit(app.exec_())

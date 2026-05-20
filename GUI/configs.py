@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout,
-                             QFrame, QDialogButtonBox, QComboBox, QSlider, QLabel)
+                             QFrame, QDialogButtonBox, QComboBox, QSlider, QLabel, QPushButton, QMessageBox)
 from PyQt5.QtCore import Qt
 import sys
 import os
@@ -12,8 +12,18 @@ from utilities.ecran import get_screen_dimensions
 from utilities.preferences import COLOR_THEME
 from GUI.toggle_checked import ModernSwitch
 
-THEME =  COLOR_THEME['solar']['app-color']
+THEME =  COLOR_THEME['Solar']['app-color']
 
+def resource_path(relative_path):
+    """ Récupère le chemin absolu vers la ressource, compatible PyInstaller """
+    if hasattr(sys, '_MEIPASS'):
+        # Mode Production (.exe) : PyInstaller extrait tout directement dans sys._MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+
+    # Mode Développement (PyCharm) : On garde ta logique PROJECT_ROOT actuelle
+    # 'dirname(__file__), ".."' permet de remonter au dossier racine du projet
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    return os.path.join(PROJECT_ROOT, relative_path)
 
 class ConfigBox(QDialog):
 
@@ -21,21 +31,14 @@ class ConfigBox(QDialog):
         super(ConfigBox, self).__init__(parent)
 
         self.setWindowTitle("Configuration")
-        self.setMaximumHeight(500)
 
         self.buildUI()
 
-        style = """
-            QDialog {
-                background: qlineargradient(
-                    x1:0, y1:1, x2:1, y2:0,
-                    stop: 0 #FFFFFF,
-                    stop: 0.5 #10440E13,
-                    stop: 0.501 #10440E3D,
-                    stop: 1 #FFFFFF
-                );
-            }
-        """
+        self.fichier_style = resource_path('utilities/style_config.qss')
+        self.load_style()
+
+        self.parent = parent
+
         self.simul = False
         self.theme_selected = None
         self.components()
@@ -46,12 +49,12 @@ class ConfigBox(QDialog):
         hauteur = screen['height']
 
         box_width = int(largeur * 0.5)
-        box_height = int(hauteur * 0.6)
+        box_height = int(hauteur * 0.4)
 
         self.resize(box_width, box_height)
 
         x_pos = int(largeur * (1 - 0.25) - box_width)
-        y_pos = int(hauteur * (1 - 0.2) - box_height)
+        y_pos = int(hauteur * (1 - 0.3) - box_height)
 
         self.move(x_pos, y_pos)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
@@ -74,9 +77,6 @@ class ConfigBox(QDialog):
         droite_lay.addWidget(self.create_settings_row("Thème", subtitle="Selectionnez le theme \nqui vous convient le mieux", widget=self.theme))
         #droite_lay.addStretch()
 
-        droite_lay.addWidget(self.create_settings_row_with_widget('Paramètres', "Appliquez les configurations qui vous conviennent"))
-
-
         self.boutons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
         self.boutons.accepted.connect(self.accept)
         self.boutons.rejected.connect(self.reject)
@@ -86,19 +86,48 @@ class ConfigBox(QDialog):
         layout_tab.addLayout(droite_lay, stretch=2)
         layout_tab.addStretch(1)
 
-        main_layout.addLayout(layout_tab)
+        self.close_session_frame = QFrame(self)
+        self.close_session_frame.setContentsMargins(0,0,0,0)
+        button_close = QPushButton("Arreter la session en cours")
+        button_close.setObjectName("close-btn")
+
+        button_close.clicked.connect(self.verify_and_close)
+
+        layout = QHBoxLayout(self.close_session_frame)
+        layout.addStretch(1)
+        layout.addWidget(button_close, stretch=3)
+        layout.addStretch(1)
+
+        main_layout.addLayout(layout_tab, stretch=2)
+
+        main_layout.addStretch(2)
+
+        main_layout.addWidget(self.close_session_frame, stretch=1)
         
         main_layout.addWidget(self.boutons, stretch=2, alignment=Qt.AlignBottom)
         self.setLayout(main_layout)
-    
-    def modifie_slide(self):
-        self.slide_lab_val.setText(str(self.slider.value()))
-        style="""
-            QLabel{
-                font-size: {self.slider.value()}pt
-            }
-        """
-        self.setStyleSheet(style)
+
+    def load_style(self):
+
+        try:
+            with open(self.fichier_style, 'r', encoding="utf-8") as f:
+                style = f.read()
+
+                self.setStyleSheet(style)
+        except FileNotFoundError:
+            print("Le fichier spécifié est introuvable")
+
+    def verify_and_close(self):
+        mess = QMessageBox()
+        mess.setIcon(QMessageBox.Information)
+        mess.setText("Voulez vous vraiment fermer la session en cours ?")
+        mess.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+        mess.setWindowTitle("Confirmation")
+        mess.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        mess.setDefaultButton(QMessageBox.No)
+        if mess.exec_() == QMessageBox.Yes:
+            if self.parent:
+                self.parent.close_monitor_session()
 
     def getThemeSelected(self):
         return self.theme.currentText()

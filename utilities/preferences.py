@@ -2,19 +2,19 @@
 
 #--------------------------GUI_PREFERENCES----------------------------#
 COLOR_THEME = {
-    'default': {
+    'Default': {
         'app-color': "black",
         'container-color': 'black',
         'font-family': '-apple-system',
     },
-    'optimized': {
-        'app-color': 'black',
-        'container-color': '#1A1A1A',
+    'Optimized': {
+        'container-color': '#203010',
+        'app-color': '#A0A0A0',
         'font-family': 'Roboto',
     },
-    'solar': {
-        'app-color': "#012C2D",
-        'container-color': "#01021E",
+    'Solar': {
+        'app-color': "#519CCD",
+        'container-color': "#51526E",
         'font-family': 'Roboto',
     }
 }

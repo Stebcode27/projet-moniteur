@@ -4,40 +4,58 @@ import os
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 from PyQt5.QtWidgets import QApplication, QDialog, QLabel, QWidget, QPushButton, QMessageBox, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QHBoxLayout, QDialogButtonBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from utilities.ecran import get_screen_dimensions
+
+def resource_path(relative_path):
+    """ Récupère le chemin absolu vers la ressource, compatible PyInstaller """
+    if hasattr(sys, '_MEIPASS'):
+        # Mode Production (.exe) : PyInstaller extrait tout directement dans sys._MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+
+    # Mode Développement (PyCharm) : On garde ta logique PROJECT_ROOT actuelle
+    # 'dirname(__file__), ".."' permet de remonter au dossier racine du projet
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    return os.path.join(PROJECT_ROOT, relative_path)
 
 class AdmissionPatient(QDialog):
 
-    def __init__(self):
+    admit = pyqtSignal(bool)
+
+    def __init__(self, parent=None):
         super().__init__()
         self.setWindowTitle('Admission Patient')
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         self.layout = QVBoxLayout()
-        self.setMinimumSize(800,400)
-
+        self.parent = parent
+        self.setMinimumSize(1000,600)
+        #self.setMaximumSize(900,400)
 
         self.patient_list = []
         self.admettre_nouveau = False
+        self.code = None
 
         self.top_widget = QWidget()
         main_layout = QVBoxLayout(self.top_widget)
-        label_top = QLabel("Admission Patient")
-        label_top.setStyleSheet("font-family: Arial; font-size: 16pt;")
-        label_content = QLabel("Vous êtes sur le point de quitter l'examen actuel pour en commencer un nouveau, est ce bien ce que vous voulez ?")
-        label_content.setContentsMargins(10,10,10,10)
-        label_content.setAlignment(Qt.AlignCenter)
+        label_content = QLabel("Liste des derniers examens")
+        label_content.setStyleSheet("font-size: 15pt")
+        question = QLabel("Commencer une nouvelle session ? ")
+        question.setStyleSheet("font-size: 12pt; font-weight: bold")
 
-        main_layout.addWidget(label_top, stretch=1)
-        main_layout.addWidget(label_content, stretch=2)
+        explain = QLabel("Vous pouvez arrêter les processus en cours pour enregistrer un nouveau patient et commencer son monitoring")
+        explain.setStyleSheet("font-size: 10pt; font-weight: normal")
 
-        self.layout.addWidget(self.top_widget, stretch=1)
+        asking = QVBoxLayout()
+        asking.addWidget(question, stretch=1)
+        asking.addWidget(explain, stretch=2)
+        main_layout.addWidget(label_content, stretch=1)
+
 
         self.tree = QTreeWidget()
         self.tree.setColumnCount(5)
         self.tree.setHeaderLabels(['Nom', 'ID', 'Date', 'Salle', 'Service'])
         self.tree.setAlternatingRowColors(True)
-        self.tree.setColumnWidth(0,300)
+        self.tree.setColumnWidth(0,150)
         self.tree.setColumnWidth(3, 75)
         self.tree.setColumnWidth(4, 125)
 
@@ -46,30 +64,49 @@ class AdmissionPatient(QDialog):
         for patient in self.patient_list:
             self.add_item(patient['nom'], patient['id'], patient['date'], patient['salle'], patient['service'])
 
-        self.layout.addWidget(self.tree, stretch=2)
 
-        self.boutons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
-        self.boutons.accepted.connect(self.accept)
+        self.boutons = QDialogButtonBox(QDialogButtonBox.Yes | QDialogButtonBox.No)
         self.boutons.rejected.connect(self.reject)
+        self.boutons.accepted.connect(self.confirmation)
 
+        self.layout.addLayout(asking, stretch=1)
+
+        self.layout.addWidget(self.top_widget, stretch=1)
+        self.layout.addWidget(self.tree, stretch=2)
         self.layout.addWidget(self.boutons, stretch=1)
 
         self.setLayout(self.layout)
 
     def confirmation(self):
         messageBox = QMessageBox()
-        messageBox.setText("Etes-vous sur de le faire ?")
+        messageBox.setText("Etes-vous sur de le faire ?\nCeci conduira à une suppression de l'ensemble des données actuelles")
         messageBox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         messageBox.setWindowTitle("Confirmation")
         messageBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         messageBox.setDefaultButton(QMessageBox.No)
         if messageBox.exec_() == QMessageBox.Yes:
-            self.admettre_nouveau = True
+            if self.parent.count_enregistrement > 0:
+                self.admettre_nouveau = True
+                self.admit.emit(self.admettre_nouveau)
+                self.parent.reset_patient_session()
+                self.accept()
+            else:
+                messagebox = QMessageBox()
+                messagebox.setIcon(QMessageBox.Information)
+                messagebox.setText("Enregistrez d'abord les données du patient actuel!")
+                messagebox.setStandardButtons(QMessageBox.Yes)
+                messagebox.setDefaultButton(QMessageBox.Yes)
+                messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+                if messagebox.exec_() == QMessageBox.Yes:
+                    self.parent.start_transfert()
+                self.accept()
         else:
-            print('no')
+            self.admettre_nouveau = False
+            self.admit.emit(self.admettre_nouveau)
+            self.reject()
 
     def get_list_next_patient(self):
-        file_path = os.path.join(PROJECT_ROOT, 'datas', 'last_exams.txt')
+        file_path = resource_path("datas/last_exams.txt")
         lines = None
         with open(file_path, 'r') as file:
             lines = file.readlines()
@@ -102,6 +139,9 @@ class AdmissionPatient(QDialog):
     def add_item(self, nom, id, date, salle, service):
         item = QTreeWidgetItem([nom, id, date, salle, service])
         self.tree.addTopLevelItem(item)
+
+    def new_admission(self):
+        print("Patient en cours d'admission")
 
 
 if __name__=='__main__':

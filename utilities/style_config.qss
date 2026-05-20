@@ -1,0 +1,11 @@
+QPushButton#close-btn {
+    width: 50%;
+    padding: 12px;
+    color: white;
+    background-color: #333333;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 15pt;
+    cursor: pointer;
+}

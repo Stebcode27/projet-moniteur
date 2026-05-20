@@ -3,7 +3,8 @@ import sys
 import os
 import time
 
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtCore import QThread
 
 # Obtenir le chemin absolu du dossier racine du projet (mon_projet/)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -17,42 +18,97 @@ try:
 except:
     pass
 """
-import wfdb
+try:
+    import wfdb
+except ModuleNotFoundError as e:
+    app = QApplication(sys.argv)
+    error_box = QMessageBox()
+    error_box.setIcon(QMessageBox.Critical)
+    error_box.setWindowTitle("Erreur de dépendance")
+    error_box.setText(f"Impossible de démarrer l'application.\n\nFichier manquant : {e}")
+    error_box.setInformativeText("Le module 'wfdb' n'a pas été inclus correctement lors de la compilation.")
+    error_box.exec_()
+    sys.exit(1)
+
 from definitions.PanTompkins import PanTompkinsDetector
 from PyQt5.QtCore import QThread, pyqtSignal
 import serial
 import struct
+from enum import Enum, IntEnum
+
+def resource_path(relative_path):
+    """ Récupère le chemin absolu vers la ressource, compatible PyInstaller """
+    if hasattr(sys, '_MEIPASS'):
+        # Mode Production (.exe) : PyInstaller extrait tout directement dans sys._MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+
+    # Mode Développement (PyCharm) : On garde ta logique PROJECT_ROOT actuelle
+    # 'dirname(__file__), ".."' permet de remonter au dossier racine du projet
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    return os.path.join(PROJECT_ROOT, relative_path)
+
+def mapping(val, in_a, in_b, out_a, out_b):
+    return out_a + (val - in_a) / (in_b - in_a) * (out_b - out_a) if not ((val < in_a) or (val > in_b)) else in_a
 
 MAXPOINT = 2500
+
+class Alarm(IntEnum):
+    ALARM_NONE = 0x04
+    ALARM_HARDWARE = 0x05
+    ALARM_PHYSIO = 0x06
+    ALARM_CRITICAL = 0x07
+    ALARM_START_NIBP = 0x08
+
+class NIBP(Enum):
+    NIBP_IDLE = bytes([0x09])
+    NIBP_INFLATING = bytes([0x0A])
+    NIBP_MEASURING = bytes([0x0B])
+    NIBP_DEFLATING = bytes([0x0C])
+    NIBP_CALCULATING = bytes([0x0D])
 
 class Interface(QThread):
 
     onChanged = pyqtSignal(dict)
     onError = pyqtSignal(str)
-    onPressionProcessed = pyqtSignal(bytes)
+    onPressionProcessed = pyqtSignal()
 
     def __init__(self):
         super().__init__()
-        self.data = None
+        self.data = {
+            "ecg": 0,
+            "buffer_ecg": 0,
+            "sat": 0,
+            "buffer_sat": 0,
+            "resp": 0,
+            "buffer_resp": 0,
+            "temp": 0,
+            "pni_moy": 0,
+            "diastol": 0,
+            "systol": 0,
+            "ts": 0,
+        }
         self.running = True
         self.isData = False
+        self.alarm_code = Alarm.ALARM_NONE
+        self.nibp_status = NIBP.NIBP_IDLE
 
     def run(self):
         try:
-            ser = serial.Serial("COM8", 115200, timeout=1)
-            packet_format = "<BffffffffffIBB"
+            self.ser = serial.Serial("COM8", 115200)
+            packet_format = "<BffffffffffIB"
             packet_size = struct.calcsize(packet_format)
 
             while self.running:
-                if ser.in_waiting > packet_size:
+                if self.ser.in_waiting > packet_size:
                     self.isData = True
-                    raw_data = ser.read(packet_size)
+                    raw_data = self.ser.read(packet_size)
 
-                    header, ecg, buffer_ecg, sat, buffer_sat, resp, buffer_resp, temp, pni_moy, diastol, systol, ts, code, footer = struct.unpack(packet_format, raw_data)
+                    header, ecg, buffer_ecg, sat, buffer_sat, resp, buffer_resp, temp, pni_moy, diastol, systol, ts, footer = struct.unpack(packet_format, raw_data)
                     if header == 0xAA and footer == 0x55:
+
                         self.data = {
                             "ecg": ecg,
-                            "buffer_ecg": buffer_ecg,
+                            "buffer_ecg": mapping(buffer_ecg, 0.01, 5.05, -0.05, 0.1),
                             "sat": sat,
                             "buffer_sat": buffer_sat,
                             "resp": resp,
@@ -61,27 +117,43 @@ class Interface(QThread):
                             "pni_moy": pni_moy,
                             "diastol": diastol,
                             "systol": systol,
-                            "code": code,
                             "ts": ts,
                         }
                         self.onChanged.emit(self.data)
-                        if code==0xFF:
-                            self.onPressionProcessed.emit(bytes(code))
+                        #print(self.data)
+                        #self.ser.write(bytes[self.alarm_code.value])
                     else:
-                        ser.read(1)
-                    #time.sleep(1)
+                        self.ser.read(1)
                 else:
                     self.isData = False
+                    #ser.flush()
+                    #ser.write(self.nibp_status)
         except Exception as e:
+            self.set_curve_data_null()
             self.onError.emit(str(e))
+
+    def set_curve_data_null(self):
+        self.data['buffer_ecg'] = 0
+        self.data['buffer_sat'] = 0
+        self.data['buffer_resp'] = 0
 
     def set_running(self, running):
         self.running = running
 
+    def setAlarm(self, alm_code):
+        self.alarm_code = alm_code
+    
+    def setNIBP(self, status):
+        self.nibp_status = status
+
+    def send_code(self):
+        self.ser.write(bytes([self.alarm_code.value]))
+
 #Template pour tous les paramètres du moniteur
-class Param():
+class Param(QThread):
 
     def __init__(self, param_name):
+        super().__init__()
         self.maxpoint = MAXPOINT   #pour eviter les messages d'erreur en cas de manque de données
         self._data_ = np.zeros(self.maxpoint, dtype='int16')
         self.param_name = param_name
@@ -134,11 +206,16 @@ class Ecg(Param):
                     self.buffer[idx_to_clear] = np.nan  # Efface la vieille donnée
                 self.ptr = (self.ptr + 1) % self.maxpoint
 
+    def run(self):
+        while self.running:
+            self.update_data()
+
     def get_mit_data(self):
         try:
-            record = wfdb.rdrecord(f"{os.path.join(PROJECT_ROOT, 'datas', '234')}", sampto=2500)
+            record = wfdb.rdrecord(resource_path("datas/234"), sampto=2500)
             signal = record.p_signal[:, 0]
             self.fs = record.fs
+            #print(signal)
             self._set_data_(signal)
         except Exception as e:
             print(f"Impossible d'ouvrir le fichier spécifié. Erreur: {e}")
@@ -152,6 +229,7 @@ class Ecg(Param):
                 self.bpm = int(self.detection[0])
             filt_list.append(filtred)
         self._set_data_(filt_list)
+
     def setbpm(self, bpm):
         self.bpm = bpm
 
@@ -219,7 +297,7 @@ class Respiration(Param):
         self.x_data = np.arange(self.maxpoint)
 
         # Paramètres respiratoires
-        self.rpm = 50  # Respirations Par Minute (très lent)
+        self.rpm = 40  # Respirations Par Minute (très lent)
         self.resp_rate = 45  # Valeur numérique (%)
 
     def _generate_resp_wave(self, i):
@@ -267,7 +345,9 @@ class Temperature(Param):
     def __init__(self, parent=None):
         super(Temperature, self).__init__("temp")
         self.parent = parent
+
         self.temperature = 37.2
+        self.value = self.temperature
 
     def update_value(self, temperature):
         self.temperature = temperature

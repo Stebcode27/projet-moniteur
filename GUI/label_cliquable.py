@@ -7,6 +7,17 @@ import os
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 
+def resource_path(relative_path):
+    """ Récupère le chemin absolu vers la ressource, compatible PyInstaller """
+    if hasattr(sys, '_MEIPASS'):
+        # Mode Production (.exe) : PyInstaller extrait tout directement dans sys._MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+
+    # Mode Développement (PyCharm) : On garde ta logique PROJECT_ROOT actuelle
+    # 'dirname(__file__), ".."' permet de remonter au dossier racine du projet
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    return os.path.join(PROJECT_ROOT, relative_path)
+
 class LabelCliquable(QLabel):
 
     clique = pyqtSignal()
@@ -16,7 +27,7 @@ class LabelCliquable(QLabel):
         if text:
             self.setText(text)
         else:
-            settings_icon_path = os.path.join(PROJECT_ROOT, 'assets', 'gear.png')
+            settings_icon_path = resource_path("assets/gear.png")
             pixmap = QPixmap(settings_icon_path)
             self.setPixmap(pixmap)
             self.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)

@@ -9,8 +9,6 @@ from PyQt5.QtWidgets import QPlainTextEdit, QWidget, QVBoxLayout
 from PyQt5.QtGui import QFont, QTextCursor
 from utilities.preferences import COLOR_THEME
 
-theme = COLOR_THEME['optimized']['container-color']
-
 class LogWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__()
@@ -20,14 +18,10 @@ class LogWidget(QWidget):
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
 
-        self.log.setStyleSheet(f"""
-            background-color: {theme};
-            color: #00FF00;
-            font-family: Courier New;
-        """)
+        self.log.setStyleSheet("color: #00FF00; font-family: Courier New; font-weight: bold")
 
         self.log.setFont(QFont('Courier New', 10))
-        self.log.setMaximumBlockCount(100)
+        self.log.setMaximumBlockCount(50)
         layout.addWidget(self.log)
 
     def ajouter_valeur(self):
@@ -37,3 +31,4 @@ class LogWidget(QWidget):
         message = f"[{horodatage}] PNI: {self.parent.pression.systo}/{self.parent.pression.diasto} ({self.parent.pression.pam})]"
         self.log.appendPlainText(message)
         self.log.moveCursor(QTextCursor.End)
+        self.log.setStyleSheet(f"background-color: {COLOR_THEME[self.parent.theme]['container-color']}; color: #00FF00; font-family: Courier New; font-weight: bold")

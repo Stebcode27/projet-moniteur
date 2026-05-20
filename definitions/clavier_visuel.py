@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QApplication, QDialog, QGridLayout, QPushButton,
                              QLineEdit, QVBoxLayout, QWidget, QHBoxLayout)
 from PyQt5.QtCore import Qt, pyqtSignal
-
+from utilities.ecran import get_screen_dimensions
 import sys
 import os
 
@@ -9,6 +9,16 @@ import os
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 
+def resource_path(relative_path):
+    """ Récupère le chemin absolu vers la ressource, compatible PyInstaller """
+    if hasattr(sys, '_MEIPASS'):
+        # Mode Production (.exe) : PyInstaller extrait tout directement dans sys._MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+
+    # Mode Développement (PyCharm) : On garde ta logique PROJECT_ROOT actuelle
+    # 'dirname(__file__), ".."' permet de remonter au dossier racine du projet
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    return os.path.join(PROJECT_ROOT, relative_path)
 
 class ClavierVisuel(QDialog):
     # Signal pour envoyer le texte construit à la fenêtre parente
@@ -20,6 +30,8 @@ class ClavierVisuel(QDialog):
         self.setWindowTitle("Clavier Visuel")
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
         self.cible = target_line_edit
+        self.setMinimumWidth(800)
+        self.setFixedHeight(400)
         self.set_position()
         self.text_box = text_box
         if self.text_box:
@@ -42,20 +54,20 @@ class ClavierVisuel(QDialog):
         lay = QHBoxLayout()
 
         space = QPushButton('ESPACE')
-        space.setFixedSize(200, 40)
+        space.setFixedSize(500, 70)
         space.clicked.connect(lambda checked, t=' ': self.ajouter_caractere(t))
         space.setFocusPolicy(Qt.StrongFocus)
         #pos = (4, 3)
         lay.addWidget(space)
 
         self.sup_button = QPushButton('SUPPR')
-        self.sup_button.setFixedSize(100,40)
+        self.sup_button.setFixedSize(250,70)
         self.sup_button.clicked.connect(self.supprimer_caractere)
         self.sup_button.setFocusPolicy(Qt.StrongFocus)
         lay.addWidget(self.sup_button)
 
         self.ok = QPushButton('OK')
-        self.ok.setFixedSize(80, 40)
+        self.ok.setFixedSize(150, 70)
         self.ok.clicked.connect(self.accepter_saisie)
         self.ok.setFocusPolicy(Qt.StrongFocus)
         lay.addWidget(self.ok)
@@ -65,14 +77,15 @@ class ClavierVisuel(QDialog):
         self.setLayout(self.main_layout)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()  # Donne le focus à la fenêtre clavier
+        #self.buildUI()
 
-        self.setStyleSheet("font-size: 12pt")
+        self.setStyleSheet("font-size: 14pt")
 
     def set_position(self):
         point_gauche = self.cible.rect().bottomLeft()
         point_global = self.cible.mapToGlobal(point_gauche)
 
-        self.move(point_global.x(), point_global.y() + 5)
+        self.move(int(point_global.x() - (self.width() / 2)), point_global.y() + 5)
 
     def set_target(self, new_target):
         self.cible = new_target
@@ -105,12 +118,13 @@ class ClavierVisuel(QDialog):
         for position, nom_touche in zip(positions, tab_touch):
             bouton = QPushButton()
             bouton.setText(nom_touche)
-            bouton.setFixedSize(60, 40)
+            bouton.setFixedHeight(60)
 
             # ⚠️ La connexion au signal standard n'est pas utilisée pour la navigation
             # On utilise uniquement le signal de clic direct pour gérer la souris ou le focus.
             if nom_touche == 'MAJ':
                 bouton.clicked.connect(self.change_casse)
+                bouton.setFixedWidth(280)
             else:
                 bouton.clicked.connect(lambda checked, t=nom_touche: self.ajouter_caractere(t))
 
@@ -181,6 +195,23 @@ class ClavierVisuel(QDialog):
         else:
             # Laisse les autres touches se comporter normalement (ou être ignorées)
             super().keyPressEvent(event)
+
+    def buildUI(self):
+        screen_dims = get_screen_dimensions()
+        largeur = screen_dims['width']
+        hauteur = screen_dims['height']
+
+        w_app = int(largeur * 0.5)
+        h_app = int(hauteur * 0.75)
+
+        self.resize(w_app, h_app)
+
+        x_pos = int(largeur * (1 - 0.25) - w_app)
+        y_pos = int(hauteur * (1 - 0.125) - h_app)
+
+        self.setStyleSheet(f"font-size: 10pt;")
+
+        self.move(x_pos, y_pos)
 
 
 if __name__ == '__main__':
