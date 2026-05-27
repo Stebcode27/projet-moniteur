@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="3eb0029d-77cf-4c86-b5c3-5c2a2c69dbaf" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/mon_projet.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/app.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/admission_patient.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/admission_patient.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/configs.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/configs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/dashboard.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/log_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/log_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/splash_protocol.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/splash_protocol.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datas/base_donnees.txt" beforeDir="false" afterPath="$PROJECT_DIR$/datas/base_donnees.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datas/last_exams.txt" beforeDir="false" afterPath="$PROJECT_DIR$/datas/last_exams.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datas/patient_infos.txt" beforeDir="false" afterPath="$PROJECT_DIR$/datas/patient_infos.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/definitions/clavier_visuel.py" beforeDir="false" afterPath="$PROJECT_DIR$/definitions/clavier_visuel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/definitions/templates_params.py" beforeDir="false" afterPath="$PROJECT_DIR$/definitions/templates_params.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utilities/duration.py" beforeDir="false" afterPath="$PROJECT_DIR$/utilities/duration.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utilities/preferences.py" beforeDir="false" afterPath="$PROJECT_DIR$/utilities/preferences.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utilities/scan_trans.py" beforeDir="false" afterPath="$PROJECT_DIR$/utilities/scan_trans.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="3Cihfq4yGWvqP9tItsaNlgywhDn" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.dashboard.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;
+  }
+}</component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-9f8e2b94138c-36ea0e71a18c-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.26094.141" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="3eb0029d-77cf-4c86-b5c3-5c2a2c69dbaf" name="Changes" comment="" />
+      <created>1776874404024</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1776874404024</updated>
+    </task>
+    <servers />
+  </component>
+</project>

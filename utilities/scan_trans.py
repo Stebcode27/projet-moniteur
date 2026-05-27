@@ -3,8 +3,9 @@ import os
 # Obtenir le chemin absolu du dossier racine du projet (mon_projet/)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QVBoxLayout, QListWidget, QPushButton, QLabel, QMessageBox, QHBoxLayout
-from PyQt5.QtNetwork import QUdpSocket, QHostAddress, QNetworkAccessManager, QNetworkRequest
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QVBoxLayout, QListWidget, QPushButton, QLabel, QMessageBox, QHBoxLayout, QProgressBar
+# AJOUT de QNetworkInterface ici
+from PyQt5.QtNetwork import QUdpSocket, QHostAddress, QNetworkAccessManager, QNetworkRequest, QNetworkInterface
 from PyQt5.QtCore import Qt, QUrl, QJsonDocument, QTimer
 from PyQt5.QtGui import QMovie
 from utilities.duration import serialize_data_for_transmission
@@ -13,11 +14,7 @@ from utilities.duration import serialize_data_for_transmission
 def resource_path(relative_path):
     """ Récupère le chemin absolu vers la ressource, compatible PyInstaller """
     if hasattr(sys, '_MEIPASS'):
-        # Mode Production (.exe) : PyInstaller extrait tout directement dans sys._MEIPASS
         return os.path.join(sys._MEIPASS, relative_path)
-
-    # Mode Développement (PyCharm) : On garde ta logique PROJECT_ROOT actuelle
-    # 'dirname(__file__), ".."' permet de remonter au dossier racine du projet
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     return os.path.join(PROJECT_ROOT, relative_path)
 
@@ -32,12 +29,13 @@ class WifiScannerForServer(QDialog):
         self.payload = payload
         self.is_patient = patient
         self.target_port = 5000
-        self.udp_port = -45454
+        self.udp_port = 45454
 
         self.timer = QTimer()
         self.timer.setSingleShot(True)
 
         self.connected_to_server = False
+        self.current_reply = None
 
         self.setStyleSheet("font: normal 9pt roboto")
 
@@ -48,7 +46,6 @@ class WifiScannerForServer(QDialog):
 
         #config réseau
         self.udp_socket = QUdpSocket(self)
-
         self.udp_socket.readyRead.connect(self.process_udp_response)
 
         self.ico_wifi_search = resource_path("assets/radio.gif")
@@ -57,6 +54,14 @@ class WifiScannerForServer(QDialog):
         self.layout = QVBoxLayout(self)
         self.status_lab = QLabel("Cliquez sur scanner pour trouver des machines...")
         self.layout.addWidget(self.status_lab)
+
+        # Barre de progression
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(False)
+        self.layout.addWidget(self.progress_bar)
 
         self.list_devices = QListWidget()
         self.widget_lay.addWidget(self.list_devices)
@@ -75,8 +80,6 @@ class WifiScannerForServer(QDialog):
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setMovie(self.movie)
         self.widget_lay.addWidget(self.label)
-
-        #self.btn_scan.setFocus()
 
         btn_lay.addWidget(self.btn_scan)
         btn_lay.addWidget(self.btn_send)
@@ -104,27 +107,53 @@ class WifiScannerForServer(QDialog):
                 self.label.hide()
                 self.status_lab.setText("Cliquez sur scanner pour trouver des machines...")
 
+    def is_network_available(self):
+        """
+        Vérifie si une interface réseau (Wi-Fi / Ethernet) est active et
+        possède une adresse IP valide (autre que localhost).
+        """
+        interfaces = QNetworkInterface.allInterfaces()
+        for interface in interfaces:
+            # On vérifie que l'interface est active (Up) et qu'elle tourne (Running)
+            if interface.flags() & QNetworkInterface.IsUp and interface.flags() & QNetworkInterface.IsRunning:
+                # On évite l'interface de Loopback (le localhost 127.0.0.1 de la machine)
+                if not (interface.flags() & QNetworkInterface.IsLoopBack):
+                    # On s'assure qu'elle possède au moins une adresse IP attribuée
+                    if len(interface.addressEntries()) > 0:
+                        return True
+        return False
+
     def send_broadcast_query(self):
+        # 1. AJOUT : Vérification de l'activation du Wi-Fi / Réseau
+        if not self.is_network_available():
+            messagebox = QMessageBox()
+            messagebox.setIcon(QMessageBox.Warning)
+            messagebox.setWindowTitle("Réseau indisponible")
+            messagebox.setText("Le Wi-Fi ou la connexion réseau semble désactivé.\nVeuillez activer votre connexion avant de scanner.")
+            messagebox.setStandardButtons(QMessageBox.Ok)
+            messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+            messagebox.exec_()
+            return  # On stoppe la fonction ici
+
+        # 2. Vérification du patient (votre code d'origine)
         if not self.is_patient:
             messagebox = QMessageBox()
             messagebox.setIcon(QMessageBox.Critical)
-            messagebox.setText("Impossble de trasferer les données car il manque des informations sur le patient actuel!")
+            messagebox.setText("Impossible de transférer les données car il manque des informations sur le patient actuel!")
             messagebox.setStandardButtons(QMessageBox.Cancel)
             messagebox.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
             if messagebox.exec_() == QMessageBox.Cancel:
                 self.close()
+                return
 
         self.list_devices.clear()
         self.status_lab.setText("Recherche en cours...")
-
         self.list_devices.hide()
-
         self.movie.start()
         self.label.show()
 
         message = b"MONITOR_REQUEST"
 
-        #envoie à l'adresse de broadcast sur le port dédié
         try:
             self.udp_socket.writeDatagram(message, QHostAddress.Broadcast, self.udp_port)
             self.execute_timer()
@@ -143,11 +172,10 @@ class WifiScannerForServer(QDialog):
 
     def process_udp_response(self):
         if not self.udp_socket.hasPendingDatagrams():
-            print("no data")
+            pass
         while self.udp_socket.hasPendingDatagrams():
             datagram, host, port = self.udp_socket.readDatagram(self.udp_socket.pendingDatagramSize())
             response = datagram.decode()
-            #si la machine répond avec le bon code?
             if "MONITOR_ALIVE" in response:
                 ip_adress = host.toString()
                 self.list_devices.addItem(ip_adress.replace("::ffff:", ""))
@@ -162,12 +190,15 @@ class WifiScannerForServer(QDialog):
     def start_transfert(self):
         selected = self.list_devices.currentItem()
         if not selected: return
-        patient_infos = self.payload['patient'].values()
+        try:
+            patient_infos = self.payload['patient'].values()
+        except TypeError:
+            patient_infos = serialize_data_for_transmission()['patient'].values()
 
         if not patient_infos:
             box = QMessageBox()
             box.setIcon(QMessageBox.Critical)
-            box.setText("Impossible de transferer les données sur le serveur distant car il manque l'identifiant du patient pour le faire !")
+            box.setText("Impossible de transférer les données sur le serveur distant car il manque l'identifiant du patient pour le faire !")
             box.setStandardButtons(QMessageBox.Cancel)
             box.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
             if box.exec_() == QMessageBox.Cancel:
@@ -175,8 +206,12 @@ class WifiScannerForServer(QDialog):
 
         ip = selected.text()
         ip = ip.replace("::ffff:", "")
-        self.status_lab.setText(f"Envoie encours vers {ip}...")
+        self.status_lab.setText(f"Envoi en cours vers {ip}...")
         self.btn_send.setEnabled(False)
+        self.btn_scan.setEnabled(False)
+
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(True)
 
         url = QUrl(f"http://{ip}:{self.target_port}/api/monitoring/session")
         request = QNetworkRequest(url)
@@ -184,20 +219,37 @@ class WifiScannerForServer(QDialog):
 
         json_data = QJsonDocument(self.payload).toJson()
 
-        self.network_manager.post(request, json_data)
+        self.current_reply = self.network_manager.post(request, json_data)
+        self.current_reply.uploadProgress.connect(self.on_upload_progress)
+        self.current_reply.downloadProgress.connect(self.on_download_progress)
 
         self.connected_to_server = True
 
     def on_http_finished(self, reply):
         error = reply.error()
+        self.progress_bar.setVisible(False)
+        self.btn_scan.setEnabled(True)
         if error == reply.NoError:
+            self.progress_bar.setValue(100)
             QMessageBox.information(self, "Succès", "Données transmises avec succès au serveur distant")
-            self.parent.count_enregistrement += 1
+            if self.parent and hasattr(self.parent, 'count_enregistrement'):
+                self.parent.count_enregistrement += 1
             self.accept()
         else:
             self.status_lab.setText(f"Erreur: {reply.errorString()}")
             self.btn_send.setEnabled(True)
         reply.deleteLater()
+
+    def on_upload_progress(self, bytes_sent, total_bytes):
+        if total_bytes > 0:
+            percentage = int((bytes_sent / total_bytes) * 100)
+            self.progress_bar.setValue(percentage)
+            self.status_lab.setText(f"Envoi en cours... {percentage}%")
+
+    def on_download_progress(self, bytes_received, total_bytes):
+        if total_bytes > 0:
+            percentage = int((bytes_received / total_bytes) * 100)
+            self.progress_bar.setValue(min(percentage + 5, 100))
 
     def set_payload(self, payload):
         self.payload = payload
@@ -212,10 +264,9 @@ class WifiScannerForServer(QDialog):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    data = [r**2 for r in range(1000000)]
+    data = {"patient": {"id": 123}, "data": [r**2 for r in range(100)]}
     scanner = WifiScannerForServer()
     scanner.set_payload(data)
     scanner.set_is_patient(True)
     scanner.show()
     sys.exit(app.exec_())
-    #print(serialize_data_for_transmission())

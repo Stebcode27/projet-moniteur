@@ -31,7 +31,7 @@ class HandShakeThread(QThread):
 
     def run(self):
         try:
-            ser = serial.Serial('COM8', 115200, timeout=1)
+            ser = serial.Serial('COM8', 115200)
             ser.flush()
             self.progression.emit(10)
 
@@ -135,7 +135,7 @@ class MonitorSplash(QSplashScreen):
         width = screen_rect.width()
         height = screen_rect.height()
 
-        chemin = resource_path("assets/Seaweed.png")
+        chemin = resource_path("assets/thumbnail.jpg")
         self.pixmap = QPixmap(chemin).scaled(width, height,
                                       Qt.IgnoreAspectRatio,
                                       Qt.SmoothTransformation)

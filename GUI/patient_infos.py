@@ -109,7 +109,7 @@ class FenetrePatient(QDialog):
     def eventFilter(self, source, event):
         # On guette l'événement FocusIn (quand on clique ou tabule dans le champ)
         if event.type() == QEvent.FocusIn and source in self.all_champs:
-            self.ouvrir_clavier(source)
+            #self.ouvrir_clavier(source)
             return True  # On indique qu'on a géré l'événement
         return super().eventFilter(source, event)
 

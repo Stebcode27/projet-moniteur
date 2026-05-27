@@ -18,7 +18,7 @@ class LogWidget(QWidget):
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
 
-        self.log.setStyleSheet("color: #00FF00; font-family: Courier New; font-weight: bold")
+        self.log.setStyleSheet("color: #00FF00; font-weight: bold")
 
         self.log.setFont(QFont('Courier New', 10))
         self.log.setMaximumBlockCount(50)

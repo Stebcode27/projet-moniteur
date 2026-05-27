@@ -393,9 +393,9 @@ class Dashboard(QMainWindow):
             label.setPos(self.ecg.x_data[0], self.ecg.buffer[0])
             self.plot_widget.addItem(label)
 
-        self.curve_resp = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=4))
-        self.curve_ecg = self.plot_widget.plot(pen=pg.mkPen(color='lime', width=4))
-        self.curve_spo2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=4))
+        self.curve_resp = self.plot_widget.plot(pen=pg.mkPen(color='#DFEE0A', width=2))
+        self.curve_ecg = self.plot_widget.plot(pen=pg.mkPen(color='lime', width=2))
+        self.curve_spo2 = self.plot_widget.plot(pen=pg.mkPen(color='#FF500A', width=2))
 
         right_layout = QVBoxLayout()
         right_layout.addWidget(self.plot_widget, stretch=6)
@@ -609,6 +609,7 @@ class Dashboard(QMainWindow):
                 self.scanner.set_is_patient(True)
             self.scanner.exec_()
             self.scanner.set_payload(payload=serialize_data_for_transmission())
+            print(self.scanner.payload)
 
     def start_pression(self):
         self.interface_serie.alarm_code = Alarm.ALARM_NONE
@@ -673,6 +674,7 @@ class Dashboard(QMainWindow):
     def update_log(self):
         if self.simul_state and not self.pause_state:
             self.log_widget.ajouter_valeur()
+            #add_new_log_text(self.log_widget.log, "YEAH MAN NIGGA", self.styleSheet())
 
     def update_logo(self):
         if self.simul_state:
